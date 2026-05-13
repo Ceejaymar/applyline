@@ -7,8 +7,11 @@ import { getDatabase, initializeDatabase } from "@/lib/db";
 import type { Column, Company, Job, Source } from "@/lib/schemas";
 
 export type BoardJob = Job & {
+  columnColor?: string;
+  columnIcon?: string;
   columnName: string;
   companyName: string;
+  sourceIcon?: string;
   sourceName?: string;
 };
 
@@ -63,8 +66,11 @@ export function useBoardData() {
           companies,
           jobs: jobs.map((job) => ({
             ...job,
+            columnColor: columnsById.get(job.columnId)?.color,
+            columnIcon: columnsById.get(job.columnId)?.icon,
             columnName: columnsById.get(job.columnId)?.name ?? "Unknown",
             companyName: companiesById.get(job.companyId)?.name ?? "Unknown company",
+            sourceIcon: job.sourceId ? sourcesById.get(job.sourceId)?.icon : undefined,
             sourceName: job.sourceId ? sourcesById.get(job.sourceId)?.name : undefined,
           })),
           sources,

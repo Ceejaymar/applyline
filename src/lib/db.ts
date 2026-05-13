@@ -66,6 +66,17 @@ function normalizeName(value: string) {
   return value.trim().replace(/\s+/g, " ");
 }
 
+function sortJobsForPersistence(a: Job, b: Job) {
+  const aPosition = a.position ?? Number.POSITIVE_INFINITY;
+  const bPosition = b.position ?? Number.POSITIVE_INFINITY;
+
+  if (aPosition !== bPosition) {
+    return aPosition - bPosition;
+  }
+
+  return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+}
+
 function hasLegacyCompany(job: unknown): job is LegacyJob {
   return (
     typeof job === "object" &&
@@ -154,6 +165,37 @@ export class ApplylineDatabase extends Dexie {
           });
 
           await jobsTable.put(migratedJob);
+        }
+      });
+
+    this.version(3)
+      .stores({
+        activities: "id, jobId, type, createdAt, fromColumnId, toColumnId",
+        columns: "id, order, isDefault, updatedAt",
+        companies: "id, name, updatedAt",
+        contacts: "id, name, email, companyId, updatedAt",
+        jobContacts: "id, jobId, contactId, [jobId+contactId], relationshipType",
+        jobs:
+          "id, companyId, columnId, sourceId, createdAt, updatedAt, appliedAt, rejectedAt, lastStatusChangedAt, archivedReason, position, *tags",
+        sources: "id, name, isDefault, updatedAt",
+      })
+      .upgrade(async (transaction) => {
+        const jobsTable = transaction.table("jobs");
+        const jobs = (await jobsTable.toArray()) as Job[];
+        const jobsByColumn = new Map<string, Job[]>();
+
+        for (const job of jobs) {
+          const columnJobs = jobsByColumn.get(job.columnId) ?? [];
+          columnJobs.push(job);
+          jobsByColumn.set(job.columnId, columnJobs);
+        }
+
+        for (const columnJobs of jobsByColumn.values()) {
+          await Promise.all(
+            columnJobs.sort(sortJobsForPersistence).map((job, index) =>
+              jobsTable.update(job.id, { position: (index + 1) * 1000 }),
+            ),
+          );
         }
       });
   }
@@ -254,6 +296,15 @@ export async function createJob(input: CreateJobInput) {
 
   const timestamp = nowIso();
   const columnId = parsedInput.columnId || DEFAULT_COLUMN_IDS.wishlist;
+  const existingColumnJobs = await getDatabase()
+    .jobs.where("columnId")
+    .equals(columnId)
+    .toArray();
+  const nextPosition =
+    parsedInput.position ??
+    (existingColumnJobs.length === 0
+      ? 1000
+      : Math.max(...existingColumnJobs.map((job) => job.position ?? 0)) + 1000);
   const job = jobSchema.parse({
     ...parsedInput,
     id: createId("job"),
@@ -266,6 +317,7 @@ export async function createJob(input: CreateJobInput) {
       parsedInput.rejectedAt ??
       (columnId === DEFAULT_COLUMN_IDS.rejected ? timestamp : undefined),
     lastStatusChangedAt: timestamp,
+    position: nextPosition,
     createdAt: timestamp,
     updatedAt: timestamp,
     tags: parsedInput.tags ?? [],
@@ -336,7 +388,151 @@ export async function updateJob(id: string, input: UpdateJobInput) {
   });
 }
 
-export async function moveJobToColumn(id: string, columnId: string) {
+export async function createColumn(name: string) {
+  await initializeDatabase();
+
+  const normalizedName = normalizeName(name);
+  const db = getDatabase();
+  const timestamp = nowIso();
+  const columns = await db.columns.toArray();
+  const nextOrder =
+    columns.length === 0
+      ? 1
+      : Math.max(...columns.map((column) => column.order)) + 1;
+  const column = columnSchema.parse({
+    id: createId("column"),
+    name: normalizedName,
+    order: nextOrder,
+    icon: "list-plus",
+    color: "violet",
+    isDefault: false,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+
+  await db.columns.add(column);
+  return column;
+}
+
+export async function renameColumn(id: string, name: string) {
+  const normalizedName = normalizeName(name);
+
+  if (!normalizedName) {
+    throw new Error("Column name is required.");
+  }
+
+  await getDatabase().columns.update(id, {
+    name: normalizedName,
+    updatedAt: nowIso(),
+  });
+}
+
+export async function reorderColumn(id: string, direction: "left" | "right") {
+  const db = getDatabase();
+  const columns = (await db.columns.toArray()).sort((a, b) => a.order - b.order);
+  const currentIndex = columns.findIndex((column) => column.id === id);
+  const nextIndex = direction === "left" ? currentIndex - 1 : currentIndex + 1;
+
+  if (currentIndex < 0 || nextIndex < 0 || nextIndex >= columns.length) {
+    return;
+  }
+
+  const currentColumn = columns[currentIndex];
+  const nextColumn = columns[nextIndex];
+  const timestamp = nowIso();
+
+  await db.transaction("rw", db.columns, async () => {
+    await Promise.all([
+      db.columns.update(currentColumn.id, {
+        order: nextColumn.order,
+        updatedAt: timestamp,
+      }),
+      db.columns.update(nextColumn.id, {
+        order: currentColumn.order,
+        updatedAt: timestamp,
+      }),
+    ]);
+  });
+}
+
+export async function deleteColumn(id: string, migrateToColumnId?: string) {
+  const db = getDatabase();
+  const [column, jobs] = await Promise.all([
+    db.columns.get(id),
+    db.jobs.where("columnId").equals(id).toArray(),
+  ]);
+
+  if (!column) {
+    throw new Error("Column was not found.");
+  }
+
+  if (jobs.length > 0 && !migrateToColumnId) {
+    throw new Error("Choose another column before deleting this one.");
+  }
+
+  if (migrateToColumnId === id) {
+    throw new Error("Choose a different migration column.");
+  }
+
+  const targetColumn =
+    migrateToColumnId ? await db.columns.get(migrateToColumnId) : undefined;
+
+  if (jobs.length > 0 && !targetColumn) {
+    throw new Error("Migration column was not found.");
+  }
+
+  const timestamp = nowIso();
+  const targetJobs =
+    migrateToColumnId
+      ? (await db.jobs.where("columnId").equals(migrateToColumnId).toArray()).sort(
+          sortJobsForPersistence,
+        )
+      : [];
+  const migratedJobs = [...targetJobs, ...jobs.sort(sortJobsForPersistence)];
+
+  await db.transaction("rw", db.columns, db.jobs, db.activities, async () => {
+    if (migrateToColumnId && targetColumn) {
+      await Promise.all(
+        migratedJobs.map((job, index) =>
+          db.jobs.update(job.id, {
+            columnId: migrateToColumnId,
+            lastStatusChangedAt: jobs.some((sourceJob) => sourceJob.id === job.id)
+              ? timestamp
+              : job.lastStatusChangedAt,
+            position: (index + 1) * 1000,
+            updatedAt: timestamp,
+          }),
+        ),
+      );
+
+      await db.activities.bulkAdd(
+        jobs.map((job) =>
+          activitySchema.parse({
+            id: createId("activity"),
+            jobId: job.id,
+            type: "moved",
+            message: `Moved ${job.title} to ${targetColumn.name}.`,
+            fromColumnId: id,
+            toColumnId: migrateToColumnId,
+            createdAt: timestamp,
+          }),
+        ),
+      );
+    }
+
+    await db.columns.delete(id);
+  });
+}
+
+type MoveJobOptions = {
+  targetIndex?: number;
+};
+
+export async function moveJobToColumn(
+  id: string,
+  columnId: string,
+  options: MoveJobOptions = {},
+) {
   const db = getDatabase();
   const [job, targetColumn] = await Promise.all([
     db.jobs.get(id),
@@ -352,11 +548,28 @@ export async function moveJobToColumn(id: string, columnId: string) {
   }
 
   const timestamp = nowIso();
+  const targetJobs = (await db.jobs.where("columnId").equals(columnId).toArray())
+    .filter((targetJob) => targetJob.id !== id)
+    .sort(sortJobsForPersistence);
+  const targetIndex = Math.max(
+    0,
+    Math.min(options.targetIndex ?? targetJobs.length, targetJobs.length),
+  );
+  const orderedTargetJobs = [
+    ...targetJobs.slice(0, targetIndex),
+    job,
+    ...targetJobs.slice(targetIndex),
+  ];
+  const didChangeColumn = job.columnId !== columnId;
   const updates: Partial<Job> = {
     columnId,
     updatedAt: timestamp,
-    lastStatusChangedAt: timestamp,
+    position: (targetIndex + 1) * 1000,
   };
+
+  if (didChangeColumn) {
+    updates.lastStatusChangedAt = timestamp;
+  }
 
   if (columnId === DEFAULT_COLUMN_IDS.applied && !job.appliedAt) {
     updates.appliedAt = timestamp;
@@ -367,18 +580,28 @@ export async function moveJobToColumn(id: string, columnId: string) {
   }
 
   await db.transaction("rw", db.jobs, db.activities, async () => {
-    await db.jobs.update(id, updates);
-    await db.activities.add(
-      activitySchema.parse({
-        id: createId("activity"),
-        jobId: id,
-        type: "moved",
-        message: `Moved ${job.title} to ${targetColumn.name}.`,
-        fromColumnId: job.columnId,
-        toColumnId: columnId,
-        createdAt: timestamp,
-      }),
+    await Promise.all(
+      orderedTargetJobs.map((targetJob, index) =>
+        db.jobs.update(targetJob.id, {
+          ...(targetJob.id === id ? updates : {}),
+          position: (index + 1) * 1000,
+        }),
+      ),
     );
+
+    if (didChangeColumn) {
+      await db.activities.add(
+        activitySchema.parse({
+          id: createId("activity"),
+          jobId: id,
+          type: "moved",
+          message: `Moved ${job.title} to ${targetColumn.name}.`,
+          fromColumnId: job.columnId,
+          toColumnId: columnId,
+          createdAt: timestamp,
+        }),
+      );
+    }
   });
 }
 

@@ -1,0 +1,232 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import {
+  closestCorners,
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import { Plus } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { AddJobDialog } from "@/features/jobs/add-job-dialog";
+import { BoardColumn } from "@/features/jobs/board-column";
+import { BoardToolbar } from "@/features/jobs/board-toolbar";
+import { JobCardSurface } from "@/features/jobs/job-card";
+import { JobDrawer } from "@/features/jobs/job-drawer";
+import { moveJobToColumn } from "@/lib/db";
+import { useBoardData, type BoardJob } from "@/lib/use-jobs";
+import { useApplylineUiStore } from "@/store/applyline-ui-store";
+
+function sortJobs(a: BoardJob, b: BoardJob) {
+  const aPosition = a.position ?? Number.POSITIVE_INFINITY;
+  const bPosition = b.position ?? Number.POSITIVE_INFINITY;
+
+  if (aPosition !== bPosition) {
+    return aPosition - bPosition;
+  }
+
+  return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+}
+
+function getColumnJobs(jobs: BoardJob[], columnId: string) {
+  return jobs.filter((job) => job.columnId === columnId).toSorted(sortJobs);
+}
+
+function getTargetIndex({
+  activeJob,
+  allJobs,
+  overId,
+  targetColumnId,
+}: {
+  activeJob: BoardJob;
+  allJobs: BoardJob[];
+  overId: string;
+  targetColumnId: string;
+}) {
+  const targetColumnJobs = getColumnJobs(allJobs, targetColumnId);
+
+  if (overId.startsWith("column:")) {
+    return targetColumnJobs.filter((job) => job.id !== activeJob.id).length;
+  }
+
+  const overIndex = targetColumnJobs.findIndex((job) => job.id === overId);
+
+  if (overIndex < 0) {
+    return targetColumnJobs.length;
+  }
+
+  if (activeJob.columnId === targetColumnId) {
+    const activeIndex = targetColumnJobs.findIndex((job) => job.id === activeJob.id);
+    const reorderedJobs = arrayMove(targetColumnJobs, activeIndex, overIndex);
+
+    return reorderedJobs.findIndex((job) => job.id === activeJob.id);
+  }
+
+  return overIndex;
+}
+
+export function BoardPage() {
+  const { columns, jobs, sources, isLoading, error } = useBoardData();
+  const activeJobId = useApplylineUiStore((state) => state.activeJobId);
+  const openCreate = useApplylineUiStore((state) => state.openCreate);
+  const [search, setSearch] = useState("");
+  const [selectedTag, setSelectedTag] = useState("");
+  const [selectedSource, setSelectedSource] = useState("");
+  const [activeDragJobId, setActiveDragJobId] = useState<string | null>(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const tags = useMemo(
+    () =>
+      Array.from(new Set(jobs.flatMap((job) => job.tags)))
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b)),
+    [jobs],
+  );
+  const filteredJobs = useMemo(() => {
+    const normalizedSearch = search.trim().toLocaleLowerCase();
+
+    return jobs.filter((job) => {
+      const matchesSearch =
+        !normalizedSearch ||
+        [job.title, job.companyName, job.location, job.sourceName]
+          .filter(Boolean)
+          .some((value) => value!.toLocaleLowerCase().includes(normalizedSearch));
+      const matchesTag = !selectedTag || job.tags.includes(selectedTag);
+      const matchesSource = !selectedSource || job.sourceId === selectedSource;
+
+      return matchesSearch && matchesTag && matchesSource;
+    });
+  }, [jobs, search, selectedSource, selectedTag]);
+  const activeJob = jobs.find((job) => job.id === activeJobId) ?? null;
+  const activeDragJob = jobs.find((job) => job.id === activeDragJobId) ?? null;
+
+  function onDragStart(event: DragStartEvent) {
+    setActiveDragJobId(event.active.id.toString());
+  }
+
+  async function onDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    setActiveDragJobId(null);
+
+    if (!over) {
+      return;
+    }
+
+    const activeJob = jobs.find((job) => job.id === active.id);
+
+    if (!activeJob) {
+      return;
+    }
+
+    const overId = over.id.toString();
+    const overJob = jobs.find((job) => job.id === overId);
+    const targetColumnId = overId.startsWith("column:")
+      ? overId.replace("column:", "")
+      : overJob?.columnId;
+
+    if (!targetColumnId) {
+      return;
+    }
+
+    const targetIndex = getTargetIndex({
+      activeJob,
+      allJobs: jobs,
+      overId,
+      targetColumnId,
+    });
+
+    await moveJobToColumn(activeJob.id, targetColumnId, { targetIndex });
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-lg border bg-card p-5 text-sm text-destructive shadow-sm">
+        {error.message}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-5">
+      <BoardToolbar
+        jobCount={filteredJobs.length}
+        onSearchChange={setSearch}
+        onSourceChange={setSelectedSource}
+        onTagChange={setSelectedTag}
+        search={search}
+        selectedSource={selectedSource}
+        selectedTag={selectedTag}
+        sources={sources}
+        tags={tags}
+      />
+      {isLoading ? (
+        <div className="flex gap-3 overflow-hidden pb-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div
+              className="h-[32rem] w-[19rem] shrink-0 animate-pulse rounded-lg border bg-muted/45"
+              key={index}
+            />
+          ))}
+        </div>
+      ) : columns.length === 0 ? (
+        <div className="grid min-h-[24rem] place-items-center rounded-lg border border-dashed bg-card/70 p-8 text-center">
+          <div>
+            <h2 className="text-lg font-semibold">Create your first column</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Columns keep applications moving from wishlist to offer.
+            </p>
+            <Button className="mt-4" onClick={() => openCreate()}>
+              <Plus />
+              Add job
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <DndContext
+          collisionDetection={closestCorners}
+          onDragEnd={onDragEnd}
+          onDragStart={onDragStart}
+          sensors={sensors}
+        >
+          <div className="flex gap-3 overflow-x-auto pb-4 [scrollbar-width:thin]">
+            {columns.map((column) => (
+              <BoardColumn
+                column={column}
+                columns={columns}
+                jobs={getColumnJobs(filteredJobs, column.id)}
+                key={column.id}
+              />
+            ))}
+          </div>
+          <DragOverlay>
+            {activeDragJob ? <JobCardSurface isOverlay job={activeDragJob} /> : null}
+          </DragOverlay>
+        </DndContext>
+      )}
+      {!isLoading && jobs.length === 0 && columns.length > 0 ? (
+        <div className="rounded-lg border border-dashed bg-card/70 p-8 text-center">
+          <h2 className="text-lg font-semibold">No applications yet</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Add a role to start building your pipeline.
+          </p>
+          <Button className="mt-4" onClick={() => openCreate(columns[0]?.id)}>
+            <Plus />
+            Add job
+          </Button>
+        </div>
+      ) : null}
+      <JobDrawer columns={columns} job={activeJob} sources={sources} />
+      <AddJobDialog columns={columns} sources={sources} />
+    </div>
+  );
+}

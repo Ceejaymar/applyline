@@ -53,6 +53,7 @@ export const jobSchema = z.object({
   appliedAt: z.string().datetime().optional(),
   rejectedAt: z.string().datetime().optional(),
   lastStatusChangedAt: z.string().datetime(),
+  position: z.number().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
   archivedReason: archivedReasonSchema.optional(),
@@ -138,6 +139,7 @@ const createJobBaseSchema = jobSchema
     rejectedAt: true,
     archivedReason: true,
     tags: true,
+    position: true,
   })
   .extend({
     columnId: z.string().optional(),

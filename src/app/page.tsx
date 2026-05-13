@@ -1,5 +1,5 @@
-import { JobBoard } from "@/features/jobs/job-board";
+import { BoardPage } from "@/features/jobs/board-page";
 
-export default function BoardPage() {
-  return <JobBoard />;
+export default function Page() {
+  return <BoardPage />;
 }
