@@ -49,12 +49,12 @@ export function ColumnMenu({ column, columns, jobCount }: ColumnMenuProps) {
   }
 
   return (
-    <div className="relative" ref={menuRef}>
+    <div className="relative shrink-0" ref={menuRef}>
       <Button
         aria-expanded={isOpen}
         aria-haspopup="menu"
         aria-label={`Open menu for ${column.name}`}
-        className="size-7 text-muted-foreground hover:text-foreground"
+        className="size-7 shrink-0 text-muted-foreground hover:text-foreground"
         onClick={() => setIsOpen((nextIsOpen) => !nextIsOpen)}
         size="icon"
         title="Column menu"

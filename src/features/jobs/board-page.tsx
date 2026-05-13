@@ -24,39 +24,42 @@ import { BoardToolbar } from "@/features/jobs/board-toolbar";
 import { ColumnCreateDialog } from "@/features/jobs/column-dialog";
 import { JobCardSurface } from "@/features/jobs/job-card";
 import { JobDrawer } from "@/features/jobs/job-drawer";
-import { isNoUpdate14DaysJob } from "@/features/jobs/job-helpers";
+import {
+  isNoUpdate14DaysJob,
+  sortJobsForColumn,
+  type JobSortMode,
+} from "@/features/jobs/job-helpers";
 import { moveJobToColumn } from "@/lib/db";
 import { DEFAULT_COLUMN_IDS, type ArchivedReason } from "@/lib/schemas";
 import { useBoardData, type BoardJob } from "@/lib/use-jobs";
 import { useApplylineUiStore } from "@/store/applyline-ui-store";
 
-function sortJobs(a: BoardJob, b: BoardJob) {
-  const aPosition = a.position ?? Number.POSITIVE_INFINITY;
-  const bPosition = b.position ?? Number.POSITIVE_INFINITY;
-
-  if (aPosition !== bPosition) {
-    return aPosition - bPosition;
-  }
-
-  return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+function getColumnSort(columnSorts: Record<string, JobSortMode>, columnId: string) {
+  return columnSorts[columnId] ?? "latest";
 }
 
-function getColumnJobs(jobs: BoardJob[], columnId: string) {
-  return jobs.filter((job) => job.columnId === columnId).toSorted(sortJobs);
+function getColumnJobs(jobs: BoardJob[], columnId: string, sort: JobSortMode) {
+  return sortJobsForColumn(jobs.filter((job) => job.columnId === columnId), sort);
 }
 
 function getTargetIndex({
   activeJob,
   allJobs,
+  columnSorts,
   overId,
   targetColumnId,
 }: {
   activeJob: BoardJob;
   allJobs: BoardJob[];
+  columnSorts: Record<string, JobSortMode>;
   overId: string;
   targetColumnId: string;
 }) {
-  const targetColumnJobs = getColumnJobs(allJobs, targetColumnId);
+  const targetColumnJobs = getColumnJobs(
+    allJobs,
+    targetColumnId,
+    getColumnSort(columnSorts, targetColumnId),
+  );
 
   if (overId.startsWith("column:")) {
     return targetColumnJobs.filter((job) => job.id !== activeJob.id).length;
@@ -97,7 +100,9 @@ export function BoardPage() {
     error,
   } = useBoardData();
   const activeJobId = useApplylineUiStore((state) => state.activeJobId);
+  const columnSorts = useApplylineUiStore((state) => state.columnSorts);
   const openCreate = useApplylineUiStore((state) => state.openCreate);
+  const setColumnSort = useApplylineUiStore((state) => state.setColumnSort);
   const [search, setSearch] = useState("");
   const [selectedTag, setSelectedTag] = useState("");
   const [selectedSource, setSelectedSource] = useState("");
@@ -171,6 +176,7 @@ export function BoardPage() {
     const targetIndex = getTargetIndex({
       activeJob,
       allJobs: jobs,
+      columnSorts,
       overId,
       targetColumnId,
     });
@@ -227,7 +233,7 @@ export function BoardPage() {
         tags={tags}
       />
       {isLoading ? (
-        <div className="flex gap-3 overflow-hidden pb-4">
+        <div className="flex min-w-0 max-w-full gap-3 overflow-hidden pb-4">
           {Array.from({ length: 4 }).map((_, index) => (
             <div
               className="h-[32rem] w-[19rem] shrink-0 animate-pulse rounded-lg border bg-muted/45"
@@ -256,13 +262,15 @@ export function BoardPage() {
           onDragStart={onDragStart}
           sensors={sensors}
         >
-          <div className="flex gap-3 overflow-x-auto pb-4 [scrollbar-width:thin]">
+          <div className="flex min-w-0 max-w-full gap-3 overflow-x-auto pb-4 [scrollbar-width:thin]">
             {columns.map((column) => (
               <BoardColumn
                 column={column}
                 columns={columns}
-                jobs={getColumnJobs(filteredJobs, column.id)}
+                jobs={getColumnJobs(filteredJobs, column.id, getColumnSort(columnSorts, column.id))}
                 key={column.id}
+                onSortChange={setColumnSort}
+                sort={getColumnSort(columnSorts, column.id)}
               />
             ))}
           </div>

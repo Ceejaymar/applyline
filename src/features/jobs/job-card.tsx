@@ -36,15 +36,6 @@ const accentByColor: Record<string, string> = {
   zinc: "bg-zinc-400",
 };
 
-
-function sourceShortName(sourceName?: string) {
-  if (!sourceName) {
-    return "Direct";
-  }
-
-  return sourceName.length > 16 ? sourceName.slice(0, 15) : sourceName;
-}
-
 export function JobCardSurface({
   dragHandle,
   isDragging,
@@ -60,7 +51,7 @@ export function JobCardSurface({
     <article
       aria-label={onOpen ? `${job.title} at ${job.companyName}` : undefined}
       className={cn(
-        "group relative overflow-hidden rounded-md border bg-card text-card-foreground shadow-[0_10px_28px_-24px_hsl(var(--foreground)/0.6)] transition duration-200",
+        "group relative w-full max-w-full overflow-hidden rounded-md border bg-card text-card-foreground shadow-[0_10px_28px_-24px_hsl(var(--foreground)/0.6)] transition duration-200",
         "hover:-translate-y-0.5 hover:border-primary/28 hover:shadow-soft",
         onOpen && "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         isDragging && "opacity-45",
@@ -81,33 +72,44 @@ export function JobCardSurface({
       tabIndex={onOpen ? 0 : undefined}
     >
       <div className={cn("absolute inset-y-0 left-0 w-1", accentClass)} />
-      <div className="flex items-start gap-2 p-3 pl-3.5">
+      <div className="flex w-full max-w-full min-w-0 items-start gap-2 overflow-hidden p-3 pl-3.5">
         {dragHandle}
-        <div className="min-w-0 flex-1 text-left">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h3 className="truncate text-sm font-semibold leading-5 tracking-normal">
+        <div className="min-w-0 flex-1 overflow-hidden text-left">
+          <div className="flex min-w-0 items-start justify-between gap-3 overflow-hidden">
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <h3
+                className="max-w-full truncate text-sm font-semibold leading-5 tracking-normal"
+                title={job.title}
+              >
                 {job.title}
               </h3>
-              <p className="mt-1 flex items-center gap-1.5 truncate text-xs text-muted-foreground">
+              <p
+                className="mt-1 flex min-w-0 max-w-full items-center gap-1.5 overflow-hidden text-xs text-muted-foreground"
+                title={job.companyName}
+              >
                 <Building2 className="size-3.5 shrink-0" />
-                <span className="truncate">{job.companyName}</span>
+                <span className="min-w-0 truncate">{job.companyName}</span>
               </p>
             </div>
             <span className="shrink-0 rounded-sm bg-secondary/70 px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
               {formatRelativeTimeCompact(job.lastStatusChangedAt ?? job.updatedAt)}
             </span>
           </div>
-          <div className="mt-3 flex items-center justify-between gap-2">
-            <span className="flex min-w-0 items-center gap-1 truncate text-[11px] font-medium text-muted-foreground">
+          <div className="mt-3 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 overflow-hidden">
+            <span
+              aria-label={`Source: ${job.sourceName ?? "Direct"}`}
+              className="flex min-w-0 max-w-full items-center gap-1 overflow-hidden text-[11px] font-medium text-muted-foreground"
+              title={job.sourceName ?? "Direct"}
+            >
               {job.sourceIcon ? <SourceIcon className="size-3 shrink-0" /> : null}
-              <span className="truncate">{sourceShortName(job.sourceName)}</span>
+              <span className="min-w-0 truncate">{job.sourceName ?? "Direct"}</span>
             </span>
-            <div className="flex min-w-0 items-center justify-end gap-1">
+            <div className="flex min-w-0 max-w-full items-center justify-end gap-1 overflow-hidden">
               {shownTags.map((tag) => (
                 <Badge
-                  className="max-w-[5.75rem] truncate border-indigo-500/15 bg-indigo-500/[0.08] px-1.5 py-0 text-[10px] text-indigo-700 dark:text-indigo-200"
+                  className="min-w-0 max-w-[5.75rem] truncate border-indigo-500/15 bg-indigo-500/[0.08] px-1.5 py-0 text-[10px] text-indigo-700 dark:text-indigo-200"
                   key={tag}
+                  title={tag}
                   variant="outline"
                 >
                   {tag}
@@ -126,7 +128,7 @@ export function JobCardSurface({
             }}
             onKeyDown={(event) => event.stopPropagation()}
             size="icon"
-            title="Open posting"
+            title={`Open posting for ${job.title}`}
             variant="ghost"
           >
             <ExternalLink className="size-3.5" />
@@ -151,7 +153,7 @@ export function JobCard({ job }: JobCardProps) {
   };
 
   return (
-    <div ref={setNodeRef} style={style}>
+    <div className="w-full max-w-full min-w-0 overflow-hidden" ref={setNodeRef} style={style}>
       <JobCardSurface
         dragHandle={
           <button

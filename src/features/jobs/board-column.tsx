@@ -7,7 +7,9 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { columnTint, getBoardIcon } from "@/features/jobs/board-icons";
 import { ColumnMenu } from "@/features/jobs/column-menu";
+import { ColumnSortMenu } from "@/features/jobs/column-sort-menu";
 import { JobCard } from "@/features/jobs/job-card";
+import type { JobSortMode } from "@/features/jobs/job-helpers";
 import type { Column } from "@/lib/schemas";
 import type { BoardJob } from "@/lib/use-jobs";
 import { cn } from "@/lib/utils";
@@ -17,9 +19,11 @@ type BoardColumnProps = {
   column: Column;
   columns: Column[];
   jobs: BoardJob[];
+  onSortChange: (columnId: string, sort: JobSortMode) => void;
+  sort: JobSortMode;
 };
 
-export function BoardColumn({ column, columns, jobs }: BoardColumnProps) {
+export function BoardColumn({ column, columns, jobs, onSortChange, sort }: BoardColumnProps) {
   const openCreate = useApplylineUiStore((state) => state.openCreate);
   const { isOver, setNodeRef } = useDroppable({
     id: `column:${column.id}`,
@@ -32,22 +36,27 @@ export function BoardColumn({ column, columns, jobs }: BoardColumnProps) {
     <section
       aria-label={column.name}
       className={cn(
-        "flex min-h-[calc(100vh-13rem)] w-[19rem] shrink-0 flex-col rounded-lg border bg-card/64 shadow-[0_18px_42px_-36px_hsl(var(--foreground)/0.55)] transition-colors",
+        "flex min-h-[calc(100vh-13rem)] w-[19rem] max-w-[19rem] shrink-0 flex-col overflow-hidden rounded-lg border bg-card/64 shadow-[0_18px_42px_-36px_hsl(var(--foreground)/0.55)] transition-colors",
         isOver && "border-primary/45 bg-primary/5",
       )}
       ref={setNodeRef}
     >
-      <header className="grid gap-2 border-b bg-background/38 p-3">
-        <div className="flex items-center gap-2">
-          <span className={cn("grid size-7 place-items-center rounded-md border", tintClass)}>
+      <header className="grid min-w-0 gap-2 border-b bg-background/38 p-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className={cn("grid size-7 shrink-0 place-items-center rounded-md border", tintClass)}>
             <Icon className="size-3.5" />
           </span>
-          <h2 className="min-w-0 flex-1 truncate text-sm font-semibold tracking-normal">
+          <h2 className="min-w-0 flex-1 truncate text-sm font-semibold tracking-normal" title={column.name}>
             {column.name}
           </h2>
-          <span className="rounded-sm border bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground">
+          <span className="shrink-0 rounded-sm border bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground">
             {jobs.length}
           </span>
+          <ColumnSortMenu
+            columnName={column.name}
+            onSortChange={(nextSort) => onSortChange(column.id, nextSort)}
+            sort={sort}
+          />
           <ColumnMenu column={column} columns={columns} jobCount={jobs.length} />
         </div>
         <Button
@@ -61,7 +70,7 @@ export function BoardColumn({ column, columns, jobs }: BoardColumnProps) {
         </Button>
       </header>
       <SortableContext items={jobs.map((job) => job.id)} strategy={verticalListSortingStrategy}>
-        <div className="grid content-start gap-2 p-2.5">
+        <div className="grid min-w-0 max-w-full content-start gap-2 overflow-x-hidden p-2.5">
           {jobs.map((job) => (
             <JobCard job={job} key={job.id} />
           ))}

@@ -5,11 +5,13 @@ import type { BoardJob } from "@/lib/use-jobs";
 
 import {
   findPossibleDuplicateJob,
+  getJobSortTimestamp,
   inferSourceIdFromLink,
   isNoUpdate14DaysJob,
   isReferralSource,
   normalizeJobLink,
   normalizeJobText,
+  sortJobsForColumn,
 } from "./job-helpers";
 
 function makeJob(overrides: Partial<BoardJob> = {}): BoardJob {
@@ -145,6 +147,157 @@ describe("isNoUpdate14DaysJob", () => {
       updatedAt: stale,
     });
     expect(isNoUpdate14DaysJob(job)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// job column sorting
+// ---------------------------------------------------------------------------
+
+describe("getJobSortTimestamp", () => {
+  it("uses lastStatusChangedAt first", () => {
+    const job = makeJob({
+      createdAt: "2024-01-01T00:00:00.000Z",
+      updatedAt: "2024-01-10T00:00:00.000Z",
+      lastStatusChangedAt: "2024-01-20T00:00:00.000Z",
+    });
+
+    expect(getJobSortTimestamp(job)).toBe(new Date("2024-01-20T00:00:00.000Z").getTime());
+  });
+
+  it("falls back to updatedAt", () => {
+    const job = makeJob({
+      createdAt: "2024-01-01T00:00:00.000Z",
+      updatedAt: "2024-01-10T00:00:00.000Z",
+      lastStatusChangedAt: "",
+    });
+
+    expect(getJobSortTimestamp(job)).toBe(new Date("2024-01-10T00:00:00.000Z").getTime());
+  });
+
+  it("falls back to createdAt", () => {
+    const job = makeJob({
+      createdAt: "2024-01-01T00:00:00.000Z",
+      updatedAt: "",
+      lastStatusChangedAt: "",
+    });
+
+    expect(getJobSortTimestamp(job)).toBe(new Date("2024-01-01T00:00:00.000Z").getTime());
+  });
+});
+
+describe("sortJobsForColumn", () => {
+  it("sorts newest first by default", () => {
+    const oldJob = makeJob({
+      id: "job_old",
+      lastStatusChangedAt: "2024-01-01T00:00:00.000Z",
+    });
+    const newJob = makeJob({
+      id: "job_new",
+      lastStatusChangedAt: "2024-02-01T00:00:00.000Z",
+    });
+
+    expect(sortJobsForColumn([oldJob, newJob]).map((job) => job.id)).toEqual([
+      "job_new",
+      "job_old",
+    ]);
+  });
+
+  it("can sort oldest first when requested", () => {
+    const oldJob = makeJob({
+      id: "job_old",
+      lastStatusChangedAt: "2024-01-01T00:00:00.000Z",
+    });
+    const newJob = makeJob({
+      id: "job_new",
+      lastStatusChangedAt: "2024-02-01T00:00:00.000Z",
+    });
+
+    expect(sortJobsForColumn([newJob, oldJob], "oldest").map((job) => job.id)).toEqual([
+      "job_old",
+      "job_new",
+    ]);
+  });
+
+  it("keeps moved jobs above older jobs after lastStatusChangedAt changes", () => {
+    const olderJob = makeJob({
+      id: "job_older",
+      lastStatusChangedAt: "2024-02-01T00:00:00.000Z",
+    });
+    const movedJob = makeJob({
+      id: "job_moved",
+      lastStatusChangedAt: "2024-03-01T00:00:00.000Z",
+    });
+
+    expect(sortJobsForColumn([olderJob, movedJob], "latest").map((job) => job.id)).toEqual([
+      "job_moved",
+      "job_older",
+    ]);
+  });
+
+  it("supports the legacy ascending direction alias", () => {
+    const oldJob = makeJob({
+      id: "job_old",
+      lastStatusChangedAt: "2024-01-01T00:00:00.000Z",
+    });
+    const newJob = makeJob({
+      id: "job_new",
+      lastStatusChangedAt: "2024-02-01T00:00:00.000Z",
+    });
+
+    expect(sortJobsForColumn([newJob, oldJob], "asc").map((job) => job.id)).toEqual([
+      "job_old",
+      "job_new",
+    ]);
+  });
+
+  it("can sort by manual position", () => {
+    const latestJob = makeJob({
+      id: "job_latest",
+      lastStatusChangedAt: "2024-03-01T00:00:00.000Z",
+      position: 2000,
+    });
+    const firstManualJob = makeJob({
+      id: "job_manual_first",
+      lastStatusChangedAt: "2024-01-01T00:00:00.000Z",
+      position: 1000,
+    });
+
+    expect(sortJobsForColumn([latestJob, firstManualJob], "manual").map((job) => job.id)).toEqual([
+      "job_manual_first",
+      "job_latest",
+    ]);
+  });
+
+  it("uses position as a stable tie-breaker without making it the primary sort", () => {
+    const timestamp = "2024-02-01T00:00:00.000Z";
+    const firstPosition = makeJob({
+      id: "job_position_1",
+      lastStatusChangedAt: timestamp,
+      position: 1000,
+    });
+    const secondPosition = makeJob({
+      id: "job_position_2",
+      lastStatusChangedAt: timestamp,
+      position: 2000,
+    });
+    const newest = makeJob({
+      id: "job_newest",
+      lastStatusChangedAt: "2024-03-01T00:00:00.000Z",
+      position: 9000,
+    });
+
+    expect(sortJobsForColumn([secondPosition, newest, firstPosition]).map((job) => job.id)).toEqual(
+      ["job_newest", "job_position_1", "job_position_2"],
+    );
+  });
+
+  it("uses job id as the final deterministic tie-breaker", () => {
+    const timestamp = "2024-02-01T00:00:00.000Z";
+    const jobB = makeJob({ id: "job_b", lastStatusChangedAt: timestamp });
+    const jobA = makeJob({ id: "job_a", lastStatusChangedAt: timestamp });
+
+    expect(sortJobsForColumn([jobB, jobA]).map((job) => job.id)).toEqual(["job_a", "job_b"]);
   });
 });
 
