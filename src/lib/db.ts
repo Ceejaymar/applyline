@@ -407,6 +407,7 @@ export async function updateJob(id: string, input: UpdateJobInput) {
       lastStatusChangedAt: latestJob.lastStatusChangedAt,
       appliedAt: latestJob.appliedAt,
       rejectedAt: latestJob.rejectedAt,
+      archivedReason: latestJob.archivedReason,
       updatedAt: nowIso(),
     });
     await db.activities.add(
@@ -421,10 +422,22 @@ export async function updateJob(id: string, input: UpdateJobInput) {
   });
 }
 
-export async function createColumn(name: string) {
+type ColumnInput = {
+  color?: string;
+  icon?: string;
+  name: string;
+};
+
+export async function createColumn(input: string | ColumnInput) {
   await initializeDatabase();
 
-  const normalizedName = normalizeName(name);
+  const columnInput = typeof input === "string" ? { name: input } : input;
+  const normalizedName = normalizeName(columnInput.name);
+
+  if (!normalizedName) {
+    throw new Error("Column name is required.");
+  }
+
   const db = getDatabase();
   const timestamp = nowIso();
   const columns = await db.columns.toArray();
@@ -436,8 +449,8 @@ export async function createColumn(name: string) {
     id: createId("column"),
     name: normalizedName,
     order: nextOrder,
-    icon: "list-plus",
-    color: "violet",
+    icon: columnInput.icon || "list-plus",
+    color: columnInput.color || "violet",
     isDefault: false,
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -447,17 +460,23 @@ export async function createColumn(name: string) {
   return column;
 }
 
-export async function renameColumn(id: string, name: string) {
-  const normalizedName = normalizeName(name);
+export async function updateColumn(id: string, input: Partial<ColumnInput>) {
+  const normalizedName = input.name ? normalizeName(input.name) : undefined;
 
-  if (!normalizedName) {
+  if (input.name !== undefined && !normalizedName) {
     throw new Error("Column name is required.");
   }
 
   await getDatabase().columns.update(id, {
-    name: normalizedName,
+    ...(normalizedName ? { name: normalizedName } : {}),
+    ...(input.icon ? { icon: input.icon } : {}),
+    ...(input.color ? { color: input.color } : {}),
     updatedAt: nowIso(),
   });
+}
+
+export async function renameColumn(id: string, name: string) {
+  await updateColumn(id, { name });
 }
 
 export async function reorderColumn(id: string, direction: "left" | "right") {
@@ -522,20 +541,38 @@ export async function deleteColumn(id: string, migrateToColumnId?: string) {
         )
       : [];
   const migratedJobs = [...targetJobs, ...jobs.sort(sortJobsForPersistence)];
+  const sourceJobIds = new Set(jobs.map((job) => job.id));
 
   await db.transaction("rw", db.columns, db.jobs, db.activities, async () => {
     if (migrateToColumnId && targetColumn) {
       await Promise.all(
-        migratedJobs.map((job, index) =>
-          db.jobs.update(job.id, {
+        migratedJobs.map((job, index) => {
+          const isSourceJob = sourceJobIds.has(job.id);
+          const updates: Partial<Job> = {
             columnId: migrateToColumnId,
-            lastStatusChangedAt: jobs.some((sourceJob) => sourceJob.id === job.id)
-              ? timestamp
-              : job.lastStatusChangedAt,
+            lastStatusChangedAt: isSourceJob ? timestamp : job.lastStatusChangedAt,
             position: (index + 1) * 1000,
             updatedAt: timestamp,
-          }),
-        ),
+          };
+
+          if (isSourceJob && migrateToColumnId === DEFAULT_COLUMN_IDS.applied && !job.appliedAt) {
+            updates.appliedAt = timestamp;
+          }
+
+          if (
+            isSourceJob &&
+            migrateToColumnId === DEFAULT_COLUMN_IDS.rejected &&
+            !job.rejectedAt
+          ) {
+            updates.rejectedAt = timestamp;
+          }
+
+          if (isSourceJob && migrateToColumnId === DEFAULT_COLUMN_IDS.archived) {
+            updates.archivedReason = job.archivedReason ?? "other";
+          }
+
+          return db.jobs.update(job.id, updates);
+        }),
       );
 
       await db.activities.bulkAdd(
@@ -558,6 +595,7 @@ export async function deleteColumn(id: string, migrateToColumnId?: string) {
 }
 
 type MoveJobOptions = {
+  archivedReason?: ArchivedReason;
   targetIndex?: number;
 };
 
@@ -596,13 +634,10 @@ export async function moveJobToColumn(
   const didChangeColumn = job.columnId !== columnId;
   const updates: Partial<Job> = {
     columnId,
+    lastStatusChangedAt: timestamp,
     updatedAt: timestamp,
     position: (targetIndex + 1) * 1000,
   };
-
-  if (didChangeColumn) {
-    updates.lastStatusChangedAt = timestamp;
-  }
 
   if (columnId === DEFAULT_COLUMN_IDS.applied && !job.appliedAt) {
     updates.appliedAt = timestamp;
@@ -610,6 +645,12 @@ export async function moveJobToColumn(
 
   if (columnId === DEFAULT_COLUMN_IDS.rejected && !job.rejectedAt) {
     updates.rejectedAt = timestamp;
+  }
+
+  if (columnId === DEFAULT_COLUMN_IDS.archived) {
+    updates.archivedReason = options.archivedReason ?? job.archivedReason;
+  } else if (job.columnId === DEFAULT_COLUMN_IDS.archived) {
+    updates.archivedReason = undefined;
   }
 
   await db.transaction("rw", db.jobs, db.activities, async () => {
@@ -622,25 +663,25 @@ export async function moveJobToColumn(
       ),
     );
 
-    if (didChangeColumn) {
-      await db.activities.add(
-        activitySchema.parse({
-          id: createId("activity"),
-          jobId: id,
-          type: "moved",
-          message: `Moved ${job.title} to ${targetColumn.name}.`,
-          fromColumnId: job.columnId,
-          toColumnId: columnId,
-          createdAt: timestamp,
-        }),
-      );
-    }
+    await db.activities.add(
+      activitySchema.parse({
+        id: createId("activity"),
+        jobId: id,
+        type: "moved",
+        message: didChangeColumn
+          ? `Moved ${job.title} to ${targetColumn.name}.`
+          : `Reordered ${job.title} in ${targetColumn.name}.`,
+        fromColumnId: job.columnId,
+        toColumnId: columnId,
+        createdAt: timestamp,
+      }),
+    );
   });
 }
 
 export async function archiveJob(
   id: string,
-  archivedReason: ArchivedReason = "other",
+  archivedReason?: ArchivedReason,
 ) {
   const db = getDatabase();
   const job = await db.jobs.get(id);
@@ -650,11 +691,20 @@ export async function archiveJob(
   }
 
   const timestamp = nowIso();
+  const archivedJobs = await db.jobs
+    .where("columnId")
+    .equals(DEFAULT_COLUMN_IDS.archived)
+    .toArray();
+  const nextPosition =
+    archivedJobs.length === 0
+      ? 1000
+      : Math.max(...archivedJobs.map((archivedJob) => archivedJob.position ?? 0)) + 1000;
 
   await db.transaction("rw", db.jobs, db.activities, async () => {
     await db.jobs.update(id, {
-      archivedReason,
+      ...(archivedReason ? { archivedReason } : {}),
       columnId: DEFAULT_COLUMN_IDS.archived,
+      position: nextPosition,
       updatedAt: timestamp,
       lastStatusChangedAt: timestamp,
     });
@@ -696,6 +746,46 @@ export async function createContact(input: CreateContactInput) {
 
   await getDatabase().contacts.add(contact);
   return contact;
+}
+
+export async function updateContact(id: string, input: Partial<CreateContactInput>) {
+  const parsedInput = createContactSchema.partial().parse(input);
+  const db = getDatabase();
+  const existingContact = await db.contacts.get(id);
+
+  if (!existingContact) {
+    throw new Error("Contact was not found.");
+  }
+
+  await db.contacts.update(id, {
+    ...parsedInput,
+    updatedAt: nowIso(),
+  });
+}
+
+export async function deleteContactPermanently(id: string) {
+  const db = getDatabase();
+  const linkedJobs = await db.jobContacts.where("contactId").equals(id).toArray();
+  const timestamp = nowIso();
+
+  await db.transaction("rw", db.contacts, db.jobContacts, db.activities, async () => {
+    await db.contacts.delete(id);
+    await db.jobContacts.where("contactId").equals(id).delete();
+
+    if (linkedJobs.length > 0) {
+      await db.activities.bulkAdd(
+        linkedJobs.map((jobContact) =>
+          activitySchema.parse({
+            id: createId("activity"),
+            jobId: jobContact.jobId,
+            type: "contact_removed",
+            message: "Removed a contact from this job.",
+            createdAt: timestamp,
+          }),
+        ),
+      );
+    }
+  });
 }
 
 export async function unlinkContactFromJob(jobContactId: string) {

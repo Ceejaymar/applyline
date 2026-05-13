@@ -28,6 +28,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { ArchiveMoveDialog } from "@/features/jobs/archive-move-dialog";
 import { getBoardIcon } from "@/features/jobs/board-icons";
 import { JobFormFields } from "@/features/jobs/job-form-fields";
 import {
@@ -46,6 +47,7 @@ import {
 } from "@/lib/db";
 import type {
   Activity,
+  ArchivedReason,
   Column,
   Company,
   Contact,
@@ -480,6 +482,7 @@ export function JobDrawer({
 }: JobDrawerProps) {
   const closeJob = useApplylineUiStore((state) => state.closeJob);
   const [isEditing, setIsEditing] = useState(false);
+  const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
   const form = useForm<JobFormValues>({
     resolver: zodResolver(jobFormSchema),
   });
@@ -529,24 +532,31 @@ export function JobDrawer({
     closeJob();
   }
 
-  async function onArchive() {
+  function onArchive() {
+    setIsArchiveDialogOpen(true);
+  }
+
+  async function confirmArchive(archivedReason?: ArchivedReason) {
     if (!job) {
       return;
     }
 
-    await archiveJob(job.id, "other");
+    await archiveJob(job.id, archivedReason);
+    setIsArchiveDialogOpen(false);
+    setIsEditing(false);
   }
 
   return (
-    <Dialog
-      open={Boolean(job)}
-      onOpenChange={(open) => {
-        if (!open) {
-          closeJob();
-        }
-      }}
-    >
-      <DialogContent className="w-[620px]">
+    <>
+      <Dialog
+        open={Boolean(job)}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeJob();
+          }
+        }}
+      >
+        <DialogContent className="w-[620px]">
         <DialogHeader>
           <div className="flex items-start justify-between gap-4 pr-7">
             <div className="min-w-0">
@@ -648,7 +658,14 @@ export function JobDrawer({
             </div>
           )
         ) : null}
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+      <ArchiveMoveDialog
+        job={job}
+        onCancel={() => setIsArchiveDialogOpen(false)}
+        onConfirm={confirmArchive}
+        open={isArchiveDialogOpen}
+      />
+    </>
   );
 }

@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, Pencil, Trash2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Pencil, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { deleteColumn, renameColumn, reorderColumn } from "@/lib/db";
+import { ColumnEditDialog } from "@/features/jobs/column-dialog";
+import { deleteColumn, reorderColumn } from "@/lib/db";
 import type { Column } from "@/lib/schemas";
 
 type ColumnMenuProps = {
@@ -17,9 +17,8 @@ type ColumnMenuProps = {
 
 export function ColumnMenu({ column, columns, jobCount }: ColumnMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [isRenaming, setIsRenaming] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [name, setName] = useState(column.name);
   const [migrationTarget, setMigrationTarget] = useState("");
   const [error, setError] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -37,16 +36,6 @@ export function ColumnMenu({ column, columns, jobCount }: ColumnMenuProps) {
 
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, []);
-
-  async function onRename() {
-    try {
-      await renameColumn(column.id, name);
-      setIsRenaming(false);
-      setError(null);
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Column could not be renamed.");
-    }
-  }
 
   async function onDelete() {
     try {
@@ -78,48 +67,18 @@ export function ColumnMenu({ column, columns, jobCount }: ColumnMenuProps) {
           className="absolute right-0 top-9 z-20 grid w-64 gap-2 rounded-md border bg-popover p-2 text-popover-foreground shadow-soft"
           role="menu"
         >
-          {isRenaming ? (
-            <div className="grid gap-2">
-              <Input
-                aria-label="Column name"
-                autoFocus
-                className="h-8"
-                onChange={(event) => setName(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    void onRename();
-                  }
-                }}
-                value={name}
-              />
-              <div className="flex justify-end gap-1">
-                <Button
-                  aria-label="Cancel rename"
-                  onClick={() => {
-                    setIsRenaming(false);
-                    setName(column.name);
-                  }}
-                  size="icon"
-                  variant="ghost"
-                >
-                  <X />
-                </Button>
-                <Button aria-label="Save column name" onClick={onRename} size="icon">
-                  <Check />
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <Button
-              className="justify-start"
-              onClick={() => setIsRenaming(true)}
-              size="sm"
-              variant="ghost"
-            >
-              <Pencil />
-              Rename
-            </Button>
-          )}
+          <Button
+            className="justify-start"
+            onClick={() => {
+              setIsEditing(true);
+              setIsOpen(false);
+            }}
+            size="sm"
+            variant="ghost"
+          >
+            <Pencil />
+            Edit column
+          </Button>
           <div className="grid grid-cols-2 gap-1">
             <Button
               disabled={columnIndex <= 0}
@@ -185,6 +144,7 @@ export function ColumnMenu({ column, columns, jobCount }: ColumnMenuProps) {
           {error ? <p className="px-1 text-xs text-destructive">{error}</p> : null}
         </div>
       ) : null}
+      <ColumnEditDialog column={column} open={isEditing} onOpenChange={setIsEditing} />
     </div>
   );
 }

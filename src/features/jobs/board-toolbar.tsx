@@ -6,9 +6,8 @@ import { Filter, Plus, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { createColumn } from "@/lib/db";
+import { ColumnCreateDialog } from "@/features/jobs/column-dialog";
 import type { Source } from "@/lib/schemas";
-import { cn } from "@/lib/utils";
 
 type BoardToolbarProps = {
   jobCount: number;
@@ -34,27 +33,6 @@ export function BoardToolbar({
   tags,
 }: BoardToolbarProps) {
   const [isCreatingColumn, setIsCreatingColumn] = useState(false);
-  const [newColumnName, setNewColumnName] = useState("");
-  const [error, setError] = useState<string | null>(null);
-
-  async function onCreateColumn() {
-    const name = newColumnName.trim();
-
-    if (!name) {
-      setIsCreatingColumn(true);
-      return;
-    }
-
-    try {
-      await createColumn(name);
-      setNewColumnName("");
-      setIsCreatingColumn(false);
-      setError(null);
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Column could not be created.");
-    }
-  }
-
   const hasFilters = Boolean(search || selectedSource || selectedTag);
 
   return (
@@ -122,40 +100,13 @@ export function BoardToolbar({
               <Filter />
             </Button>
           )}
-          <div
-            className={cn(
-              "flex items-center gap-2",
-              isCreatingColumn && "rounded-md border bg-card p-1 shadow-sm",
-            )}
-          >
-            {isCreatingColumn ? (
-              <Input
-                aria-label="New column name"
-                autoFocus
-                className="h-8 w-44"
-                onChange={(event) => setNewColumnName(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    void onCreateColumn();
-                  }
-
-                  if (event.key === "Escape") {
-                    setIsCreatingColumn(false);
-                    setNewColumnName("");
-                  }
-                }}
-                placeholder="Column name"
-                value={newColumnName}
-              />
-            ) : null}
-            <Button onClick={onCreateColumn} size={isCreatingColumn ? "sm" : "default"}>
-              <Plus />
-              Column
-            </Button>
-          </div>
+          <Button onClick={() => setIsCreatingColumn(true)}>
+            <Plus />
+            Column
+          </Button>
         </div>
       </div>
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      <ColumnCreateDialog open={isCreatingColumn} onOpenChange={setIsCreatingColumn} />
     </div>
   );
 }

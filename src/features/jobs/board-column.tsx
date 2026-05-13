@@ -5,7 +5,7 @@ import { useDroppable } from "@dnd-kit/core";
 import { Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { getBoardIcon } from "@/features/jobs/board-icons";
+import { columnTint, getBoardIcon } from "@/features/jobs/board-icons";
 import { ColumnMenu } from "@/features/jobs/column-menu";
 import { JobCard } from "@/features/jobs/job-card";
 import type { Column } from "@/lib/schemas";
@@ -17,17 +17,6 @@ type BoardColumnProps = {
   column: Column;
   columns: Column[];
   jobs: BoardJob[];
-};
-
-const columnTint: Record<string, string> = {
-  amber: "text-amber-600 bg-amber-500/10 border-amber-500/15",
-  blue: "text-blue-600 bg-blue-500/10 border-blue-500/15",
-  green: "text-emerald-600 bg-emerald-500/10 border-emerald-500/15",
-  red: "text-rose-600 bg-rose-500/10 border-rose-500/15",
-  slate: "text-slate-600 bg-slate-500/10 border-slate-500/15",
-  teal: "text-teal-600 bg-teal-500/10 border-teal-500/15",
-  violet: "text-violet-600 bg-violet-500/10 border-violet-500/15",
-  zinc: "text-zinc-600 bg-zinc-500/10 border-zinc-500/15",
 };
 
 export function BoardColumn({ column, columns, jobs }: BoardColumnProps) {

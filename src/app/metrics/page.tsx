@@ -1,5 +1,5 @@
-import { JobMetrics } from "@/features/jobs/job-metrics";
+import { MetricsPage } from "@/features/metrics/metrics-page";
 
-export default function MetricsPage() {
-  return <JobMetrics />;
+export default function Page() {
+  return <MetricsPage />;
 }

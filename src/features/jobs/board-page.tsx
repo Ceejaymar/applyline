@@ -9,6 +9,7 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  type DragCancelEvent,
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
@@ -17,11 +18,13 @@ import { Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { AddJobDialog } from "@/features/jobs/add-job-dialog";
+import { ArchiveMoveDialog } from "@/features/jobs/archive-move-dialog";
 import { BoardColumn } from "@/features/jobs/board-column";
 import { BoardToolbar } from "@/features/jobs/board-toolbar";
 import { JobCardSurface } from "@/features/jobs/job-card";
 import { JobDrawer } from "@/features/jobs/job-drawer";
 import { moveJobToColumn } from "@/lib/db";
+import { DEFAULT_COLUMN_IDS, type ArchivedReason } from "@/lib/schemas";
 import { useBoardData, type BoardJob } from "@/lib/use-jobs";
 import { useApplylineUiStore } from "@/store/applyline-ui-store";
 
@@ -73,6 +76,12 @@ function getTargetIndex({
   return overIndex;
 }
 
+type PendingMove = {
+  jobId: string;
+  targetColumnId: string;
+  targetIndex: number;
+};
+
 export function BoardPage() {
   const {
     activities,
@@ -91,6 +100,7 @@ export function BoardPage() {
   const [selectedTag, setSelectedTag] = useState("");
   const [selectedSource, setSelectedSource] = useState("");
   const [activeDragJobId, setActiveDragJobId] = useState<string | null>(null);
+  const [pendingArchiveMove, setPendingArchiveMove] = useState<PendingMove | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -124,6 +134,10 @@ export function BoardPage() {
     setActiveDragJobId(event.active.id.toString());
   }
 
+  function onDragCancel(_event: DragCancelEvent) {
+    setActiveDragJobId(null);
+  }
+
   async function onDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     setActiveDragJobId(null);
@@ -155,7 +169,31 @@ export function BoardPage() {
       targetColumnId,
     });
 
+    if (
+      targetColumnId === DEFAULT_COLUMN_IDS.archived &&
+      activeJob.columnId !== DEFAULT_COLUMN_IDS.archived
+    ) {
+      setPendingArchiveMove({
+        jobId: activeJob.id,
+        targetColumnId,
+        targetIndex,
+      });
+      return;
+    }
+
     await moveJobToColumn(activeJob.id, targetColumnId, { targetIndex });
+  }
+
+  async function confirmArchiveMove(archivedReason?: ArchivedReason) {
+    if (!pendingArchiveMove) {
+      return;
+    }
+
+    await moveJobToColumn(pendingArchiveMove.jobId, pendingArchiveMove.targetColumnId, {
+      archivedReason,
+      targetIndex: pendingArchiveMove.targetIndex,
+    });
+    setPendingArchiveMove(null);
   }
 
   if (error) {
@@ -204,6 +242,7 @@ export function BoardPage() {
       ) : (
         <DndContext
           collisionDetection={closestCorners}
+          onDragCancel={onDragCancel}
           onDragEnd={onDragEnd}
           onDragStart={onDragStart}
           sensors={sensors}
@@ -245,6 +284,12 @@ export function BoardPage() {
         sources={sources}
       />
       <AddJobDialog columns={columns} companies={companies} sources={sources} />
+      <ArchiveMoveDialog
+        job={jobs.find((job) => job.id === pendingArchiveMove?.jobId) ?? null}
+        onCancel={() => setPendingArchiveMove(null)}
+        onConfirm={confirmArchiveMove}
+        open={Boolean(pendingArchiveMove)}
+      />
     </div>
   );
 }
