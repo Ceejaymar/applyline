@@ -7,6 +7,7 @@ import { Building2, ExternalLink, GripVertical } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { getBoardIcon } from "@/features/jobs/board-icons";
 import type { BoardJob } from "@/lib/use-jobs";
 import { cn } from "@/lib/utils";
 import { useApplylineUiStore } from "@/store/applyline-ui-store";
@@ -74,6 +75,7 @@ export function JobCardSurface({
 }: JobCardSurfaceProps) {
   const accentClass = accentByColor[job.columnColor ?? ""] ?? "bg-indigo-500";
   const shownTags = job.tags.slice(0, 2);
+  const SourceIcon = getBoardIcon(job.sourceIcon);
 
   return (
     <article
@@ -117,8 +119,9 @@ export function JobCardSurface({
             </span>
           </div>
           <div className="mt-3 flex items-center justify-between gap-2">
-            <span className="min-w-0 truncate text-[11px] font-medium text-muted-foreground">
-              {sourceShortName(job.sourceName)}
+            <span className="flex min-w-0 items-center gap-1 truncate text-[11px] font-medium text-muted-foreground">
+              {job.sourceIcon ? <SourceIcon className="size-3 shrink-0" /> : null}
+              <span className="truncate">{sourceShortName(job.sourceName)}</span>
             </span>
             <div className="flex min-w-0 items-center justify-end gap-1">
               {shownTags.map((tag) => (

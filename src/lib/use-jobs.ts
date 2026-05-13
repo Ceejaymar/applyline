@@ -4,7 +4,15 @@ import { useEffect, useState } from "react";
 import { liveQuery } from "dexie";
 
 import { getDatabase, initializeDatabase } from "@/lib/db";
-import type { Column, Company, Job, Source } from "@/lib/schemas";
+import type {
+  Activity,
+  Column,
+  Company,
+  Contact,
+  Job,
+  JobContact,
+  Source,
+} from "@/lib/schemas";
 
 export type BoardJob = Job & {
   columnColor?: string;
@@ -16,15 +24,21 @@ export type BoardJob = Job & {
 };
 
 type BoardData = {
+  activities: Activity[];
   columns: Column[];
   companies: Company[];
+  contacts: Contact[];
+  jobContacts: JobContact[];
   jobs: BoardJob[];
   sources: Source[];
 };
 
 const emptyBoardData: BoardData = {
+  activities: [],
   columns: [],
   companies: [],
+  contacts: [],
+  jobContacts: [],
   jobs: [],
   sources: [],
 };
@@ -51,19 +65,26 @@ export function useBoardData() {
 
       subscription = liveQuery(async () => {
         const db = getDatabase();
-        const [columns, companies, jobs, sources] = await Promise.all([
-          db.columns.toArray(),
-          db.companies.toArray(),
-          db.jobs.toArray(),
-          db.sources.toArray(),
-        ]);
+        const [activities, columns, companies, contacts, jobContacts, jobs, sources] =
+          await Promise.all([
+            db.activities.toArray(),
+            db.columns.toArray(),
+            db.companies.toArray(),
+            db.contacts.toArray(),
+            db.jobContacts.toArray(),
+            db.jobs.toArray(),
+            db.sources.toArray(),
+          ]);
         const companiesById = new Map(companies.map((company) => [company.id, company]));
         const columnsById = new Map(columns.map((column) => [column.id, column]));
         const sourcesById = new Map(sources.map((source) => [source.id, source]));
 
         return {
+          activities,
           columns: columns.toSorted(sortByOrder),
           companies,
+          contacts,
+          jobContacts,
           jobs: jobs.map((job) => ({
             ...job,
             columnColor: columnsById.get(job.columnId)?.color,

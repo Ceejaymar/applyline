@@ -10,6 +10,7 @@ import {
   createCompanySchema,
   createContactSchema,
   createJobSchema,
+  createSourceSchema,
   defaultColumns,
   defaultSources,
   jobContactSchema,
@@ -26,6 +27,7 @@ import {
   type CreateCompanyInput,
   type CreateContactInput,
   type CreateJobInput,
+  type CreateSourceInput,
   type Job,
   type JobContact,
   type LinkContactToJobInput,
@@ -279,6 +281,37 @@ export async function createActivity(input: CreateActivityInput) {
 
   await getDatabase().activities.add(activity);
   return activity;
+}
+
+export async function createSource(input: CreateSourceInput) {
+  await initializeDatabase();
+
+  const parsedInput = createSourceSchema.parse({
+    ...input,
+    name: normalizeName(input.name),
+  });
+  const db = getDatabase();
+  const existingSource = await db.sources
+    .where("name")
+    .equalsIgnoreCase(parsedInput.name)
+    .first();
+
+  if (existingSource) {
+    return existingSource;
+  }
+
+  const timestamp = nowIso();
+  const source = sourceSchema.parse({
+    ...parsedInput,
+    id: createId("source"),
+    icon: parsedInput.icon || "circle-help",
+    isDefault: false,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+
+  await db.sources.add(source);
+  return source;
 }
 
 export async function createJob(input: CreateJobInput) {
@@ -663,6 +696,30 @@ export async function createContact(input: CreateContactInput) {
 
   await getDatabase().contacts.add(contact);
   return contact;
+}
+
+export async function unlinkContactFromJob(jobContactId: string) {
+  const db = getDatabase();
+  const jobContact = await db.jobContacts.get(jobContactId);
+
+  if (!jobContact) {
+    return;
+  }
+
+  const timestamp = nowIso();
+
+  await db.transaction("rw", db.jobContacts, db.activities, async () => {
+    await db.jobContacts.delete(jobContactId);
+    await db.activities.add(
+      activitySchema.parse({
+        id: createId("activity"),
+        jobId: jobContact.jobId,
+        type: "contact_removed",
+        message: "Removed a contact from this job.",
+        createdAt: timestamp,
+      }),
+    );
+  });
 }
 
 export async function linkContactToJob(input: LinkContactToJobInput) {

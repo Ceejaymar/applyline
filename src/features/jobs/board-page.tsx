@@ -74,7 +74,17 @@ function getTargetIndex({
 }
 
 export function BoardPage() {
-  const { columns, jobs, sources, isLoading, error } = useBoardData();
+  const {
+    activities,
+    columns,
+    companies,
+    contacts,
+    jobContacts,
+    jobs,
+    sources,
+    isLoading,
+    error,
+  } = useBoardData();
   const activeJobId = useApplylineUiStore((state) => state.activeJobId);
   const openCreate = useApplylineUiStore((state) => state.openCreate);
   const [search, setSearch] = useState("");
@@ -225,8 +235,16 @@ export function BoardPage() {
           </Button>
         </div>
       ) : null}
-      <JobDrawer columns={columns} job={activeJob} sources={sources} />
-      <AddJobDialog columns={columns} sources={sources} />
+      <JobDrawer
+        activities={activities}
+        columns={columns}
+        companies={companies}
+        contacts={contacts}
+        job={activeJob}
+        jobContacts={jobContacts}
+        sources={sources}
+      />
+      <AddJobDialog columns={columns} companies={companies} sources={sources} />
     </div>
   );
 }

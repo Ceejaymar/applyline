@@ -125,6 +125,11 @@ export const createContactSchema = contactSchema.pick({
   notes: true,
 });
 
+export const createSourceSchema = sourceSchema.pick({
+  name: true,
+  icon: true,
+});
+
 const createJobBaseSchema = jobSchema
   .pick({
     title: true,
@@ -234,6 +239,7 @@ export type Activity = z.infer<typeof activitySchema>;
 export type Source = z.infer<typeof sourceSchema>;
 export type CreateCompanyInput = z.infer<typeof createCompanySchema>;
 export type CreateContactInput = z.infer<typeof createContactSchema>;
+export type CreateSourceInput = z.infer<typeof createSourceSchema>;
 export type CreateJobInput = z.infer<typeof createJobSchema>;
 export type UpdateJobInput = z.infer<typeof updateJobSchema>;
 export type LinkContactToJobInput = z.infer<typeof linkContactToJobSchema>;
