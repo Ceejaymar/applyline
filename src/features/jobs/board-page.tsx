@@ -23,6 +23,7 @@ import { BoardColumn } from "@/features/jobs/board-column";
 import { BoardToolbar } from "@/features/jobs/board-toolbar";
 import { JobCardSurface } from "@/features/jobs/job-card";
 import { JobDrawer } from "@/features/jobs/job-drawer";
+import { isNoUpdate14DaysJob } from "@/features/jobs/job-helpers";
 import { moveJobToColumn } from "@/lib/db";
 import { DEFAULT_COLUMN_IDS, type ArchivedReason } from "@/lib/schemas";
 import { useBoardData, type BoardJob } from "@/lib/use-jobs";
@@ -99,6 +100,7 @@ export function BoardPage() {
   const [search, setSearch] = useState("");
   const [selectedTag, setSelectedTag] = useState("");
   const [selectedSource, setSelectedSource] = useState("");
+  const [computedFilter, setComputedFilter] = useState("");
   const [activeDragJobId, setActiveDragJobId] = useState<string | null>(null);
   const [pendingArchiveMove, setPendingArchiveMove] = useState<PendingMove | null>(null);
   const sensors = useSensors(
@@ -123,10 +125,12 @@ export function BoardPage() {
           .some((value) => value!.toLocaleLowerCase().includes(normalizedSearch));
       const matchesTag = !selectedTag || job.tags.includes(selectedTag);
       const matchesSource = !selectedSource || job.sourceId === selectedSource;
+      const matchesComputedFilter =
+        computedFilter !== "no-update-14-days" || isNoUpdate14DaysJob(job);
 
-      return matchesSearch && matchesTag && matchesSource;
+      return matchesSearch && matchesTag && matchesSource && matchesComputedFilter;
     });
-  }, [jobs, search, selectedSource, selectedTag]);
+  }, [computedFilter, jobs, search, selectedSource, selectedTag]);
   const activeJob = jobs.find((job) => job.id === activeJobId) ?? null;
   const activeDragJob = jobs.find((job) => job.id === activeDragJobId) ?? null;
 
@@ -207,7 +211,9 @@ export function BoardPage() {
   return (
     <div className="grid gap-5">
       <BoardToolbar
+        computedFilter={computedFilter}
         jobCount={filteredJobs.length}
+        onComputedFilterChange={setComputedFilter}
         onSearchChange={setSearch}
         onSourceChange={setSelectedSource}
         onTagChange={setSelectedTag}
@@ -281,9 +287,10 @@ export function BoardPage() {
         contacts={contacts}
         job={activeJob}
         jobContacts={jobContacts}
+        jobs={jobs}
         sources={sources}
       />
-      <AddJobDialog columns={columns} companies={companies} sources={sources} />
+      <AddJobDialog columns={columns} companies={companies} jobs={jobs} sources={sources} />
       <ArchiveMoveDialog
         job={jobs.find((job) => job.id === pendingArchiveMove?.jobId) ?? null}
         onCancel={() => setPendingArchiveMove(null)}

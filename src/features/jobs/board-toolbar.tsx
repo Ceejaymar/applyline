@@ -10,7 +10,9 @@ import { ColumnCreateDialog } from "@/features/jobs/column-dialog";
 import type { Source } from "@/lib/schemas";
 
 type BoardToolbarProps = {
+  computedFilter: string;
   jobCount: number;
+  onComputedFilterChange: (value: string) => void;
   onSearchChange: (value: string) => void;
   onSourceChange: (value: string) => void;
   onTagChange: (value: string) => void;
@@ -22,7 +24,9 @@ type BoardToolbarProps = {
 };
 
 export function BoardToolbar({
+  computedFilter,
   jobCount,
+  onComputedFilterChange,
   onSearchChange,
   onSourceChange,
   onTagChange,
@@ -33,7 +37,7 @@ export function BoardToolbar({
   tags,
 }: BoardToolbarProps) {
   const [isCreatingColumn, setIsCreatingColumn] = useState(false);
-  const hasFilters = Boolean(search || selectedSource || selectedTag);
+  const hasFilters = Boolean(search || selectedSource || selectedTag || computedFilter);
 
   return (
     <div className="grid gap-4">
@@ -81,6 +85,15 @@ export function BoardToolbar({
               </option>
             ))}
           </Select>
+          <Select
+            aria-label="Computed filters"
+            className="w-full sm:w-44"
+            onChange={(event) => onComputedFilterChange(event.target.value)}
+            value={computedFilter}
+          >
+            <option value="">All activity</option>
+            <option value="no-update-14-days">No update 14+ days</option>
+          </Select>
           {hasFilters ? (
             <Button
               aria-label="Clear filters"
@@ -88,6 +101,7 @@ export function BoardToolbar({
                 onSearchChange("");
                 onSourceChange("");
                 onTagChange("");
+                onComputedFilterChange("");
               }}
               size="icon"
               title="Clear filters"

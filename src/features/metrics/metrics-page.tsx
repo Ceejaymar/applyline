@@ -317,6 +317,7 @@ export function MetricsPage() {
         contacts={contacts}
         job={activeJob}
         jobContacts={jobContacts}
+        jobs={jobs}
         sources={sources}
       />
     </div>

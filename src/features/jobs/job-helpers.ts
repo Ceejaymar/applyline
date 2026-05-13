@@ -1,0 +1,111 @@
+import { DEFAULT_COLUMN_IDS, DEFAULT_SOURCE_IDS, type Source } from "@/lib/schemas";
+import type { BoardJob } from "@/lib/use-jobs";
+
+const noUpdateThresholdMs = 14 * 24 * 60 * 60 * 1000;
+
+type DuplicateJobInput = {
+  companyName?: string;
+  excludeJobId?: string;
+  jobs: BoardJob[];
+  link?: string;
+  title?: string;
+};
+
+const sourceMatchers = [
+  { sourceId: DEFAULT_SOURCE_IDS.greenhouse, patterns: ["greenhouse.io"] },
+  { sourceId: DEFAULT_SOURCE_IDS.lever, patterns: ["lever.co"] },
+  { sourceId: DEFAULT_SOURCE_IDS.linkedin, patterns: ["linkedin.com"] },
+  { sourceId: DEFAULT_SOURCE_IDS.indeed, patterns: ["indeed.com"] },
+  { sourceId: DEFAULT_SOURCE_IDS.workday, patterns: ["workdayjobs.com", "myworkdayjobs.com"] },
+] as const;
+
+export function normalizeJobText(value?: string) {
+  return (value ?? "").trim().replace(/\s+/g, " ").toLocaleLowerCase();
+}
+
+export function normalizeJobLink(value?: string) {
+  const trimmedValue = value?.trim();
+
+  if (!trimmedValue) {
+    return "";
+  }
+
+  try {
+    const url = new URL(trimmedValue);
+    url.hash = "";
+    return url.toString().replace(/\/$/, "").toLocaleLowerCase();
+  } catch {
+    return trimmedValue.replace(/\/$/, "").toLocaleLowerCase();
+  }
+}
+
+export function getJobStatusDate(job: BoardJob) {
+  return job.lastStatusChangedAt || job.updatedAt;
+}
+
+export function isNoUpdate14DaysJob(job: BoardJob, now = new Date()) {
+  if (
+    job.columnId !== DEFAULT_COLUMN_IDS.applied &&
+    job.columnId !== DEFAULT_COLUMN_IDS.interview
+  ) {
+    return false;
+  }
+
+  return now.getTime() - new Date(getJobStatusDate(job)).getTime() >= noUpdateThresholdMs;
+}
+
+export function findPossibleDuplicateJob({
+  companyName,
+  excludeJobId,
+  jobs,
+  link,
+  title,
+}: DuplicateJobInput) {
+  const normalizedCompanyName = normalizeJobText(companyName);
+  const normalizedTitle = normalizeJobText(title);
+  const normalizedLink = normalizeJobLink(link);
+
+  return jobs.find((job) => {
+    if (job.id === excludeJobId) {
+      return false;
+    }
+
+    if (normalizedLink && normalizeJobLink(job.link) === normalizedLink) {
+      return true;
+    }
+
+    return (
+      normalizedCompanyName &&
+      normalizedTitle &&
+      normalizeJobText(job.companyName) === normalizedCompanyName &&
+      normalizeJobText(job.title) === normalizedTitle
+    );
+  });
+}
+
+export function inferSourceIdFromLink(link: string | undefined, sources: Source[]) {
+  const normalizedLink = normalizeJobLink(link);
+
+  if (!normalizedLink) {
+    return undefined;
+  }
+
+  const match = sourceMatchers.find((matcher) =>
+    matcher.patterns.some((pattern) => normalizedLink.includes(pattern)),
+  );
+
+  if (!match) {
+    return undefined;
+  }
+
+  return sources.some((source) => source.id === match.sourceId) ? match.sourceId : undefined;
+}
+
+export function isReferralSource(sourceId: string | undefined, sources: Source[]) {
+  if (!sourceId) {
+    return false;
+  }
+
+  const source = sources.find((nextSource) => nextSource.id === sourceId);
+  return sourceId === DEFAULT_SOURCE_IDS.referral || source?.name.toLocaleLowerCase() === "referral";
+}

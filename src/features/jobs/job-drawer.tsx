@@ -29,6 +29,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { ArchiveMoveDialog } from "@/features/jobs/archive-move-dialog";
+import { DuplicateJobWarning } from "@/features/jobs/duplicate-job-warning";
 import { getBoardIcon } from "@/features/jobs/board-icons";
 import { JobFormFields } from "@/features/jobs/job-form-fields";
 import {
@@ -37,6 +38,7 @@ import {
   toJobInput,
   type JobFormValues,
 } from "@/features/jobs/job-form-schema";
+import { findPossibleDuplicateJob } from "@/features/jobs/job-helpers";
 import {
   archiveJob,
   createContact,
@@ -66,6 +68,7 @@ type JobDrawerProps = {
   contacts: Contact[];
   job: BoardJob | null;
   jobContacts: JobContact[];
+  jobs: BoardJob[];
   sources: Source[];
 };
 
@@ -478,11 +481,15 @@ export function JobDrawer({
   contacts,
   job,
   jobContacts,
+  jobs,
   sources,
 }: JobDrawerProps) {
   const closeJob = useApplylineUiStore((state) => state.closeJob);
+  const openJob = useApplylineUiStore((state) => state.openJob);
   const [isEditing, setIsEditing] = useState(false);
   const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
+  const [duplicateJob, setDuplicateJob] = useState<BoardJob | null>(null);
+  const [pendingValues, setPendingValues] = useState<JobFormValues | null>(null);
   const form = useForm<JobFormValues>({
     resolver: zodResolver(jobFormSchema),
   });
@@ -492,6 +499,8 @@ export function JobDrawer({
   useEffect(() => {
     if (!job) {
       setIsEditing(false);
+      setDuplicateJob(null);
+      setPendingValues(null);
       return;
     }
 
@@ -512,15 +521,41 @@ export function JobDrawer({
         tags: job.tags,
       }),
     );
+    setDuplicateJob(null);
+    setPendingValues(null);
   }, [form, job]);
+
+  async function saveJob(values: JobFormValues) {
+    if (!job) {
+      return;
+    }
+
+    await updateJob(job.id, toJobInput(values));
+    setDuplicateJob(null);
+    setPendingValues(null);
+    setIsEditing(false);
+  }
 
   async function onSubmit(values: JobFormValues) {
     if (!job) {
       return;
     }
 
-    await updateJob(job.id, toJobInput(values));
-    setIsEditing(false);
+    const possibleDuplicateJob = findPossibleDuplicateJob({
+      companyName: values.companyName,
+      excludeJobId: job.id,
+      jobs,
+      link: values.link,
+      title: values.title,
+    });
+
+    if (possibleDuplicateJob) {
+      setDuplicateJob(possibleDuplicateJob);
+      setPendingValues(values);
+      return;
+    }
+
+    await saveJob(values);
   }
 
   async function onDelete() {
@@ -601,6 +636,18 @@ export function JobDrawer({
         {job ? (
           isEditing ? (
             <form className="grid gap-5" onSubmit={form.handleSubmit(onSubmit)}>
+              {duplicateJob ? (
+                <DuplicateJobWarning
+                  duplicateJob={duplicateJob}
+                  onContinue={() => {
+                    void saveJob(pendingValues ?? form.getValues());
+                  }}
+                  onOpenExisting={() => {
+                    setIsEditing(false);
+                    openJob(duplicateJob.id);
+                  }}
+                />
+              ) : null}
               <JobFormFields
                 columns={columns}
                 companies={companies}

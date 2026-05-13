@@ -1,5 +1,6 @@
 import { DEFAULT_COLUMN_IDS, type Column, type Source } from "@/lib/schemas";
 import type { BoardJob } from "@/lib/use-jobs";
+import { getJobStatusDate, isNoUpdate14DaysJob } from "@/features/jobs/job-helpers";
 
 export type CountDatum = {
   color?: string;
@@ -33,7 +34,6 @@ export type MetricsSummary = {
   totalJobs: number;
 };
 
-const staleThresholdMs = 14 * 24 * 60 * 60 * 1000;
 const laterStageColumnIds = new Set<string>([
   DEFAULT_COLUMN_IDS.interview,
   DEFAULT_COLUMN_IDS.offer,
@@ -51,23 +51,8 @@ function startOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
 }
 
-function getStatusDate(job: BoardJob) {
-  return job.lastStatusChangedAt || job.updatedAt;
-}
-
 function isAppliedJob(job: BoardJob) {
   return Boolean(job.appliedAt) || job.columnId !== DEFAULT_COLUMN_IDS.wishlist;
-}
-
-function isAttentionJob(job: BoardJob, now: Date) {
-  if (
-    job.columnId !== DEFAULT_COLUMN_IDS.applied &&
-    job.columnId !== DEFAULT_COLUMN_IDS.interview
-  ) {
-    return false;
-  }
-
-  return now.getTime() - new Date(getStatusDate(job)).getTime() >= staleThresholdMs;
 }
 
 function getAppliedCountSince(jobs: BoardJob[], startDate: Date, now: Date) {
@@ -120,20 +105,20 @@ export function calculateMetrics({
   const columnsById = new Map(columns.map((column) => [column.id, column]));
   const sourcesById = new Map(sources.map((source) => [source.id, source]));
   const totalStatusMs = jobs.reduce((sum, job) => {
-    return sum + Math.max(0, now.getTime() - new Date(getStatusDate(job)).getTime());
+    return sum + Math.max(0, now.getTime() - new Date(getJobStatusDate(job)).getTime());
   }, 0);
   const appliedJobCount = jobs.filter(isAppliedJob).length;
   const interviewCount = jobs.filter((job) => laterStageColumnIds.has(job.columnId)).length;
   const offerCount = jobs.filter((job) => job.columnId === DEFAULT_COLUMN_IDS.offer).length;
   const needsAttention = jobs
-    .filter((job) => isAttentionJob(job, now))
+    .filter((job) => isNoUpdate14DaysJob(job, now))
     .toSorted(
-      (a, b) => new Date(getStatusDate(a)).getTime() - new Date(getStatusDate(b)).getTime(),
+      (a, b) => new Date(getJobStatusDate(a)).getTime() - new Date(getJobStatusDate(b)).getTime(),
     )
     .map((job) => ({
       companyName: job.companyName,
       id: job.id,
-      lastUpdateAt: getStatusDate(job),
+      lastUpdateAt: getJobStatusDate(job),
       status: job.columnName,
       title: job.title,
     }));

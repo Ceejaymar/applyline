@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import { Plus, X } from "lucide-react";
 
@@ -11,6 +11,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { getBoardIcon } from "@/features/jobs/board-icons";
 import type { JobFormValues } from "@/features/jobs/job-form-schema";
+import { inferSourceIdFromLink, isReferralSource } from "@/features/jobs/job-helpers";
 import { createSource } from "@/lib/db";
 import type { Column, Company, Source } from "@/lib/schemas";
 
@@ -157,6 +158,24 @@ function SourceField({
 export function JobFormFields({ columns, companies, form, sources }: JobFormFieldsProps) {
   const id = useId();
   const errors = form.formState.errors;
+  const link = form.watch("link");
+  const selectedSourceId = form.watch("sourceId");
+  const shouldEncourageContact = isReferralSource(selectedSourceId, sources);
+
+  useEffect(() => {
+    if (selectedSourceId) {
+      return;
+    }
+
+    const inferredSourceId = inferSourceIdFromLink(link, sources);
+
+    if (inferredSourceId) {
+      form.setValue("sourceId", inferredSourceId, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+  }, [form, link, selectedSourceId, sources]);
 
   return (
     <div className="grid gap-5">
@@ -184,6 +203,11 @@ export function JobFormFields({ columns, companies, form, sources }: JobFormFiel
           </div>
           <SourceField form={form} inputId={`${id}-sourceId`} sources={sources} />
         </div>
+        {shouldEncourageContact ? (
+          <p className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+            Referral selected. Add or link the referring contact in the job drawer when you save.
+          </p>
+        ) : null}
         <div className="grid gap-2">
           <Label htmlFor={`${id}-link`}>Posting URL</Label>
           <Input id={`${id}-link`} placeholder="https://..." type="url" {...form.register("link")} />

@@ -336,6 +336,7 @@ export function ContactsPage() {
         contacts={contacts}
         job={activeJob}
         jobContacts={jobContacts}
+        jobs={jobs}
         sources={sources}
       />
     </div>
