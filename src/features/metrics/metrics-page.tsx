@@ -16,8 +16,9 @@ import {
   Trophy,
   XCircle,
 } from "lucide-react";
+import Link from "next/link";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { JobDrawer } from "@/features/jobs/job-drawer";
 import {
   calculateMetrics,
@@ -236,6 +237,23 @@ export function MetricsPage() {
           {Array.from({ length: 8 }).map((_, index) => (
             <div className="h-32 animate-pulse rounded-lg border bg-muted/45" key={index} />
           ))}
+        </div>
+      ) : jobs.length === 0 ? (
+        <div className="grid min-h-80 place-items-center rounded-lg border border-dashed bg-card/70 p-8 text-center">
+          <div className="grid place-items-center gap-3">
+            <div className="grid size-11 place-items-center rounded-md bg-secondary">
+              <ChartNoAxesColumn className="size-5 text-muted-foreground" />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold">No data yet</h2>
+              <p className="mt-1 max-w-xs text-sm text-muted-foreground">
+                Metrics will appear here once you add job applications to your board.
+              </p>
+            </div>
+            <Link className={buttonVariants({ variant: "outline" })} href="/">
+              Go to Board
+            </Link>
+          </div>
         </div>
       ) : (
         <>

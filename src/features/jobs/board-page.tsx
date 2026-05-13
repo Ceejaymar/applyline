@@ -21,6 +21,7 @@ import { AddJobDialog } from "@/features/jobs/add-job-dialog";
 import { ArchiveMoveDialog } from "@/features/jobs/archive-move-dialog";
 import { BoardColumn } from "@/features/jobs/board-column";
 import { BoardToolbar } from "@/features/jobs/board-toolbar";
+import { ColumnCreateDialog } from "@/features/jobs/column-dialog";
 import { JobCardSurface } from "@/features/jobs/job-card";
 import { JobDrawer } from "@/features/jobs/job-drawer";
 import { isNoUpdate14DaysJob } from "@/features/jobs/job-helpers";
@@ -102,6 +103,7 @@ export function BoardPage() {
   const [selectedSource, setSelectedSource] = useState("");
   const [computedFilter, setComputedFilter] = useState("");
   const [activeDragJobId, setActiveDragJobId] = useState<string | null>(null);
+  const [isCreatingColumn, setIsCreatingColumn] = useState(false);
   const [pendingArchiveMove, setPendingArchiveMove] = useState<PendingMove | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -214,6 +216,7 @@ export function BoardPage() {
         computedFilter={computedFilter}
         jobCount={filteredJobs.length}
         onComputedFilterChange={setComputedFilter}
+        onCreateColumn={() => setIsCreatingColumn(true)}
         onSearchChange={setSearch}
         onSourceChange={setSelectedSource}
         onTagChange={setSelectedTag}
@@ -239,9 +242,9 @@ export function BoardPage() {
             <p className="mt-1 text-sm text-muted-foreground">
               Columns keep applications moving from wishlist to offer.
             </p>
-            <Button className="mt-4" onClick={() => openCreate()}>
+            <Button className="mt-4" onClick={() => setIsCreatingColumn(true)}>
               <Plus />
-              Add job
+              Create column
             </Button>
           </div>
         </div>
@@ -291,6 +294,7 @@ export function BoardPage() {
         sources={sources}
       />
       <AddJobDialog columns={columns} companies={companies} jobs={jobs} sources={sources} />
+      <ColumnCreateDialog open={isCreatingColumn} onOpenChange={setIsCreatingColumn} />
       <ArchiveMoveDialog
         job={jobs.find((job) => job.id === pendingArchiveMove?.jobId) ?? null}
         onCancel={() => setPendingArchiveMove(null)}

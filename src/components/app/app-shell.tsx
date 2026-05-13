@@ -30,7 +30,7 @@ export function AppShell({ children }: AppShellProps) {
             {navItems.map((item) => (
               <NavLink href={item.href} key={item.href}>
                 <item.icon aria-hidden="true" className="size-4" />
-                {item.label}
+                <span className="sr-only sm:not-sr-only">{item.label}</span>
               </NavLink>
             ))}
           </nav>

@@ -95,6 +95,7 @@ function ContactTable({
               <td className="px-4 py-3">
                 {contact.email ? (
                   <a
+                    aria-label={`Send email to ${contact.name}`}
                     className="inline-flex items-center gap-1.5 text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                     href={`mailto:${contact.email}`}
                   >
@@ -108,6 +109,7 @@ function ContactTable({
               <td className="px-4 py-3">
                 {contact.linkedin ? (
                   <a
+                    aria-label={`Open LinkedIn profile for ${contact.name}`}
                     className="inline-flex items-center gap-1.5 text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                     href={contact.linkedin}
                     rel="noreferrer"

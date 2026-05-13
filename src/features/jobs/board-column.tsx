@@ -30,6 +30,7 @@ export function BoardColumn({ column, columns, jobs }: BoardColumnProps) {
 
   return (
     <section
+      aria-label={column.name}
       className={cn(
         "flex min-h-[calc(100vh-13rem)] w-[19rem] shrink-0 flex-col rounded-lg border bg-card/64 shadow-[0_18px_42px_-36px_hsl(var(--foreground)/0.55)] transition-colors",
         isOver && "border-primary/45 bg-primary/5",
@@ -65,7 +66,11 @@ export function BoardColumn({ column, columns, jobs }: BoardColumnProps) {
             <JobCard job={job} key={job.id} />
           ))}
           {jobs.length === 0 ? (
-            <div className="grid h-28 place-items-center rounded-md border border-dashed bg-background/55 px-5 text-center text-xs leading-5 text-muted-foreground">
+            <div
+              aria-label={`${column.name} drop zone — empty`}
+              className="grid h-28 place-items-center rounded-md border border-dashed bg-background/55 px-5 text-center text-xs leading-5 text-muted-foreground"
+              role="region"
+            >
               Drop jobs here or add a new one.
             </div>
           ) : null}

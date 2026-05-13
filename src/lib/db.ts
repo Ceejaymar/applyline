@@ -215,6 +215,14 @@ export function getDatabase() {
   return database;
 }
 
+export function _resetDatabaseSingletonForTesting() {
+  if (database?.isOpen()) {
+    database.close();
+  }
+  database = undefined;
+  seedPromise = undefined;
+}
+
 export async function seedDefaultData() {
   const db = getDatabase();
 

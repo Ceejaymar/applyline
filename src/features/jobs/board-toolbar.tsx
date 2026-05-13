@@ -1,18 +1,17 @@
 "use client";
 
-import { useState } from "react";
 import { Filter, Plus, Search, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { ColumnCreateDialog } from "@/features/jobs/column-dialog";
 import type { Source } from "@/lib/schemas";
 
 type BoardToolbarProps = {
   computedFilter: string;
   jobCount: number;
   onComputedFilterChange: (value: string) => void;
+  onCreateColumn: () => void;
   onSearchChange: (value: string) => void;
   onSourceChange: (value: string) => void;
   onTagChange: (value: string) => void;
@@ -27,6 +26,7 @@ export function BoardToolbar({
   computedFilter,
   jobCount,
   onComputedFilterChange,
+  onCreateColumn,
   onSearchChange,
   onSourceChange,
   onTagChange,
@@ -36,7 +36,6 @@ export function BoardToolbar({
   sources,
   tags,
 }: BoardToolbarProps) {
-  const [isCreatingColumn, setIsCreatingColumn] = useState(false);
   const hasFilters = Boolean(search || selectedSource || selectedTag || computedFilter);
 
   return (
@@ -114,13 +113,12 @@ export function BoardToolbar({
               <Filter />
             </Button>
           )}
-          <Button onClick={() => setIsCreatingColumn(true)}>
+          <Button onClick={onCreateColumn}>
             <Plus />
             Column
           </Button>
         </div>
       </div>
-      <ColumnCreateDialog open={isCreatingColumn} onOpenChange={setIsCreatingColumn} />
     </div>
   );
 }

@@ -154,6 +154,14 @@ function DataSection() {
         </div>
       </div>
 
+      <div className="flex items-start gap-2 rounded-md border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">
+        <Database className="mt-px size-4 shrink-0 text-primary/70" />
+        <p>
+          Your job data is stored locally in this browser using IndexedDB. Export backups
+          regularly if you want to preserve or move your data.
+        </p>
+      </div>
+
       <div className="grid gap-3 rounded-md border bg-background/55 p-3">
         <div className="flex flex-wrap items-center gap-2">
           <Button disabled={isBusy} onClick={onExportBackup}>
@@ -280,7 +288,7 @@ const settingsSections = [
   },
   {
     title: "Storage",
-    description: "Applications are stored in this browser.",
+    description: "All data lives in this browser. No account or server needed.",
     icon: Database,
     action: <span className="text-sm text-muted-foreground">IndexedDB</span>,
   },
