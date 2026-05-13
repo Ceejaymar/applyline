@@ -7,12 +7,13 @@ import { Building2, ExternalLink, GripVertical, MapPin } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { jobStatusLabels, type Job } from "@/lib/job-schema";
+import type { BoardJob } from "@/lib/use-jobs";
+import { DEFAULT_COLUMN_IDS } from "@/lib/schemas";
 import { cn } from "@/lib/utils";
 import { useApplylineUiStore } from "@/store/applyline-ui-store";
 
 type JobCardProps = {
-  job: Job;
+  job: BoardJob;
 };
 
 function formatUpdatedAt(value: string) {
@@ -28,7 +29,7 @@ export function JobCard({ job }: JobCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({
       id: job.id,
-      data: { status: job.status },
+      data: { columnId: job.columnId },
     });
 
   const style: CSSProperties = {
@@ -63,11 +64,11 @@ export function JobCard({ job }: JobCardProps) {
               <h3 className="truncate text-sm font-semibold">{job.title}</h3>
               <p className="mt-1 flex items-center gap-1 truncate text-xs text-muted-foreground">
                 <Building2 className="size-3.5 shrink-0" />
-                {job.company}
+                {job.companyName}
               </p>
             </div>
-            <Badge variant={job.status === "offer" ? "success" : "secondary"}>
-              {jobStatusLabels[job.status]}
+            <Badge variant={job.columnId === DEFAULT_COLUMN_IDS.offer ? "success" : "secondary"}>
+              {job.columnName}
             </Badge>
           </div>
           <div className="mt-3 flex items-center justify-between gap-3 text-xs text-muted-foreground">
@@ -78,13 +79,13 @@ export function JobCard({ job }: JobCardProps) {
             <span className="shrink-0">{formatUpdatedAt(job.updatedAt)}</span>
           </div>
         </button>
-        {job.url ? (
+        {job.link ? (
           <Button
             aria-label="Open job posting"
             className="size-7 shrink-0"
             onClick={(event) => {
               event.stopPropagation();
-              window.open(job.url, "_blank", "noopener,noreferrer");
+              window.open(job.link, "_blank", "noopener,noreferrer");
             }}
             size="icon"
             title="Open job posting"

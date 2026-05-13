@@ -2,6 +2,7 @@
 
 import { ChartNoAxesColumn, CircleCheckBig, Handshake, Send } from "lucide-react";
 
+import { DEFAULT_COLUMN_IDS } from "@/lib/schemas";
 import { useJobs } from "@/lib/use-jobs";
 
 const metricCards = [
@@ -15,9 +16,9 @@ export function JobMetrics() {
   const { jobs } = useJobs();
   const values = {
     total: jobs.length,
-    applied: jobs.filter((job) => job.status === "applied").length,
-    interviewing: jobs.filter((job) => job.status === "interviewing").length,
-    offer: jobs.filter((job) => job.status === "offer").length,
+    applied: jobs.filter((job) => job.columnId === DEFAULT_COLUMN_IDS.applied).length,
+    interviewing: jobs.filter((job) => job.columnId === DEFAULT_COLUMN_IDS.interview).length,
+    offer: jobs.filter((job) => job.columnId === DEFAULT_COLUMN_IDS.offer).length,
   };
 
   return (

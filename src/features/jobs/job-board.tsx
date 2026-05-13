@@ -19,25 +19,25 @@ import { Plus, Rows3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { JobCard } from "@/features/jobs/job-card";
 import { JobDetailDialog } from "@/features/jobs/job-detail-dialog";
-import { moveJob } from "@/lib/db";
-import { jobStatusLabels, jobStatuses, type Job, type JobStatus } from "@/lib/job-schema";
-import { useJobs } from "@/lib/use-jobs";
+import { moveJobToColumn } from "@/lib/db";
+import type { Column } from "@/lib/schemas";
+import { useBoardData, type BoardJob } from "@/lib/use-jobs";
 import { cn } from "@/lib/utils";
 import { useApplylineUiStore } from "@/store/applyline-ui-store";
 
-function sortByPosition(a: Job, b: Job) {
-  return a.position - b.position;
+function sortByUpdatedAt(a: BoardJob, b: BoardJob) {
+  return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
 }
 
 type BoardColumnProps = {
-  jobs: Job[];
-  status: JobStatus;
+  column: Column;
+  jobs: BoardJob[];
 };
 
-function BoardColumn({ jobs, status }: BoardColumnProps) {
+function BoardColumn({ column, jobs }: BoardColumnProps) {
   const { isOver, setNodeRef } = useDroppable({
-    id: `column:${status}`,
-    data: { status },
+    id: `column:${column.id}`,
+    data: { columnId: column.id },
   });
 
   return (
@@ -49,7 +49,7 @@ function BoardColumn({ jobs, status }: BoardColumnProps) {
       ref={setNodeRef}
     >
       <header className="flex h-11 items-center justify-between border-b px-3">
-        <h2 className="text-sm font-semibold">{jobStatusLabels[status]}</h2>
+        <h2 className="text-sm font-semibold">{column.name}</h2>
         <span className="rounded-sm bg-background px-2 py-0.5 text-xs text-muted-foreground">
           {jobs.length}
         </span>
@@ -71,7 +71,7 @@ function BoardColumn({ jobs, status }: BoardColumnProps) {
 }
 
 export function JobBoard() {
-  const { jobs, isLoading, error } = useJobs();
+  const { columns, jobs, sources, isLoading, error } = useBoardData();
   const activeJobId = useApplylineUiStore((state) => state.activeJobId);
   const boardDensity = useApplylineUiStore((state) => state.boardDensity);
   const openCreate = useApplylineUiStore((state) => state.openCreate);
@@ -96,19 +96,16 @@ export function JobBoard() {
 
     const overId = over.id.toString();
     const overJob = jobs.find((job) => job.id === overId);
-    const targetStatus = overId.startsWith("column:")
-      ? (overId.replace("column:", "") as JobStatus)
-      : overJob?.status;
+    const targetColumnId = overId.startsWith("column:")
+      ? overId.replace("column:", "")
+      : overJob?.columnId;
 
-    if (!targetStatus) {
+    if (!targetColumnId) {
       return;
     }
 
-    const nextPosition =
-      overJob && overJob.id !== activeJob.id ? overJob.position - 0.5 : Date.now();
-
-    if (activeJob.status !== targetStatus || activeJob.position !== nextPosition) {
-      await moveJob(activeJob.id, targetStatus, nextPosition);
+    if (activeJob.columnId !== targetColumnId) {
+      await moveJobToColumn(activeJob.id, targetColumnId);
     }
   }
 
@@ -149,16 +146,16 @@ export function JobBoard() {
       </div>
       <DndContext onDragEnd={onDragEnd} sensors={sensors}>
         <div className="flex gap-3 overflow-x-auto pb-3">
-          {jobStatuses.map((status) => {
+          {columns.map((column) => {
             const columnJobs = jobs
-              .filter((job) => job.status === status)
-              .toSorted(sortByPosition);
+              .filter((job) => job.columnId === column.id)
+              .toSorted(sortByUpdatedAt);
 
-            return <BoardColumn jobs={columnJobs} key={status} status={status} />;
+            return <BoardColumn column={column} jobs={columnJobs} key={column.id} />;
           })}
         </div>
       </DndContext>
-      <JobDetailDialog job={activeJob} />
+      <JobDetailDialog columns={columns} job={activeJob} sources={sources} />
     </div>
   );
 }

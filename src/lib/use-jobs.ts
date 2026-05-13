@@ -3,30 +3,100 @@
 import { useEffect, useState } from "react";
 import { liveQuery } from "dexie";
 
-import { getDatabase } from "@/lib/db";
-import type { Job } from "@/lib/job-schema";
+import { getDatabase, initializeDatabase } from "@/lib/db";
+import type { Column, Company, Job, Source } from "@/lib/schemas";
 
-export function useJobs() {
-  const [jobs, setJobs] = useState<Job[]>([]);
+export type BoardJob = Job & {
+  columnName: string;
+  companyName: string;
+  sourceName?: string;
+};
+
+type BoardData = {
+  columns: Column[];
+  companies: Company[];
+  jobs: BoardJob[];
+  sources: Source[];
+};
+
+const emptyBoardData: BoardData = {
+  columns: [],
+  companies: [],
+  jobs: [],
+  sources: [],
+};
+
+function sortByOrder(a: Column, b: Column) {
+  return a.order - b.order;
+}
+
+export function useBoardData() {
+  const [data, setData] = useState<BoardData>(emptyBoardData);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    const subscription = liveQuery(() =>
-      getDatabase().jobs.orderBy("position").toArray(),
-    ).subscribe({
-      next: (nextJobs) => {
-        setJobs(nextJobs);
-        setIsLoading(false);
-      },
-      error: (nextError) => {
-        setError(nextError instanceof Error ? nextError : new Error("Database error"));
-        setIsLoading(false);
-      },
+    let isCancelled = false;
+    let subscription: { unsubscribe: () => void } | undefined;
+
+    async function subscribeToBoardData() {
+      await initializeDatabase();
+
+      if (isCancelled) {
+        return;
+      }
+
+      subscription = liveQuery(async () => {
+        const db = getDatabase();
+        const [columns, companies, jobs, sources] = await Promise.all([
+          db.columns.toArray(),
+          db.companies.toArray(),
+          db.jobs.toArray(),
+          db.sources.toArray(),
+        ]);
+        const companiesById = new Map(companies.map((company) => [company.id, company]));
+        const columnsById = new Map(columns.map((column) => [column.id, column]));
+        const sourcesById = new Map(sources.map((source) => [source.id, source]));
+
+        return {
+          columns: columns.toSorted(sortByOrder),
+          companies,
+          jobs: jobs.map((job) => ({
+            ...job,
+            columnName: columnsById.get(job.columnId)?.name ?? "Unknown",
+            companyName: companiesById.get(job.companyId)?.name ?? "Unknown company",
+            sourceName: job.sourceId ? sourcesById.get(job.sourceId)?.name : undefined,
+          })),
+          sources,
+        };
+      }).subscribe({
+        next: (nextData) => {
+          setData(nextData);
+          setIsLoading(false);
+        },
+        error: (nextError) => {
+          setError(nextError instanceof Error ? nextError : new Error("Database error"));
+          setIsLoading(false);
+        },
+      });
+    }
+
+    subscribeToBoardData().catch((nextError) => {
+      setError(nextError instanceof Error ? nextError : new Error("Database error"));
+      setIsLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isCancelled = true;
+      subscription?.unsubscribe();
+    };
   }, []);
+
+  return { ...data, isLoading, error };
+}
+
+export function useJobs() {
+  const { jobs, isLoading, error } = useBoardData();
 
   return { jobs, isLoading, error };
 }
