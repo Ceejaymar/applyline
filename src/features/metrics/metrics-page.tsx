@@ -25,6 +25,7 @@ import {
   type CountDatum,
   type MetricsSummary,
 } from "@/features/metrics/metrics-utils";
+import { formatRelativeTime } from "@/lib/dates";
 import { useBoardData } from "@/lib/use-jobs";
 import { cn } from "@/lib/utils";
 import { useApplylineUiStore } from "@/store/applyline-ui-store";
@@ -52,24 +53,6 @@ const colorBarClass: Record<string, string> = {
   zinc: "bg-zinc-400",
 };
 
-function formatRelativeTime(value: string) {
-  const elapsedMs = Date.now() - new Date(value).getTime();
-  const elapsedDays = Math.max(0, Math.floor(elapsedMs / 86_400_000));
-
-  if (elapsedDays < 1) {
-    return "today";
-  }
-
-  if (elapsedDays < 7) {
-    return `${elapsedDays}d ago`;
-  }
-
-  if (elapsedDays < 35) {
-    return `${Math.floor(elapsedDays / 7)}w ago`;
-  }
-
-  return `${Math.floor(elapsedDays / 30)}mo ago`;
-}
 
 function MetricCard({ detail, icon: Icon, label, value }: MetricCardProps) {
   return (

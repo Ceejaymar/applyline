@@ -57,6 +57,7 @@ import type {
   JobContactRelationshipType,
   Source,
 } from "@/lib/schemas";
+import { formatRelativeTimeFull } from "@/lib/dates";
 import type { BoardJob } from "@/lib/use-jobs";
 import { cn } from "@/lib/utils";
 import { useApplylineUiStore } from "@/store/applyline-ui-store";
@@ -118,36 +119,6 @@ function formatFullDate(value?: string) {
   }).format(new Date(value));
 }
 
-function formatRelativeTime(value: string) {
-  const elapsedMs = Date.now() - new Date(value).getTime();
-  const elapsedMinutes = Math.max(0, Math.floor(elapsedMs / 60_000));
-
-  if (elapsedMinutes < 1) {
-    return "just now";
-  }
-
-  if (elapsedMinutes < 60) {
-    return `${elapsedMinutes}m ago`;
-  }
-
-  const elapsedHours = Math.floor(elapsedMinutes / 60);
-
-  if (elapsedHours < 24) {
-    return `${elapsedHours}h ago`;
-  }
-
-  const elapsedDays = Math.floor(elapsedHours / 24);
-
-  if (elapsedDays < 7) {
-    return `${elapsedDays}d ago`;
-  }
-
-  if (elapsedDays < 35) {
-    return `${Math.floor(elapsedDays / 7)}w ago`;
-  }
-
-  return `${Math.floor(elapsedDays / 30)}mo ago`;
-}
 
 function relationLabel(value: JobContactRelationshipType) {
   return relationshipOptions.find((option) => option.value === value)?.label ?? "Other";
@@ -390,7 +361,7 @@ function ActivitySection({ activities }: { activities: Activity[] }) {
             <li className="rounded-md border bg-background/55 p-3" key={activity.id}>
               <p className="text-sm">{activity.message}</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {activity.type.replaceAll("_", " ")} · {formatRelativeTime(activity.createdAt)}
+                {activity.type.replaceAll("_", " ")} · {formatRelativeTimeFull(activity.createdAt)}
               </p>
             </li>
           ))}
@@ -676,7 +647,7 @@ export function JobDrawer({
               <div className="flex flex-wrap gap-2 rounded-md border bg-background/55 p-3 text-sm text-muted-foreground">
                 <span className="inline-flex items-center gap-1.5">
                   <CalendarClock className="size-3.5" />
-                  Updated {formatRelativeTime(job.updatedAt)}
+                  Updated {formatRelativeTimeFull(job.updatedAt)}
                 </span>
                 {source ? (
                   <span>

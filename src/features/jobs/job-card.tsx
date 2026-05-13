@@ -8,6 +8,7 @@ import { Building2, ExternalLink, GripVertical } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getBoardIcon } from "@/features/jobs/board-icons";
+import { formatRelativeTimeCompact } from "@/lib/dates";
 import type { BoardJob } from "@/lib/use-jobs";
 import { cn } from "@/lib/utils";
 import { useApplylineUiStore } from "@/store/applyline-ui-store";
@@ -35,28 +36,6 @@ const accentByColor: Record<string, string> = {
   zinc: "bg-zinc-400",
 };
 
-function formatRelativeTime(value: string) {
-  const elapsedMs = Date.now() - new Date(value).getTime();
-  const elapsedDays = Math.max(0, Math.floor(elapsedMs / 86_400_000));
-
-  if (elapsedDays < 1) {
-    return "now";
-  }
-
-  if (elapsedDays < 7) {
-    return `${elapsedDays}d`;
-  }
-
-  if (elapsedDays < 35) {
-    return `${Math.floor(elapsedDays / 7)}w`;
-  }
-
-  if (elapsedDays < 365) {
-    return `${Math.floor(elapsedDays / 30)}mo`;
-  }
-
-  return `${Math.floor(elapsedDays / 365)}y`;
-}
 
 function sourceShortName(sourceName?: string) {
   if (!sourceName) {
@@ -116,7 +95,7 @@ export function JobCardSurface({
               </p>
             </div>
             <span className="shrink-0 rounded-sm bg-secondary/70 px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
-              {formatRelativeTime(job.lastStatusChangedAt ?? job.updatedAt)}
+              {formatRelativeTimeCompact(job.lastStatusChangedAt ?? job.updatedAt)}
             </span>
           </div>
           <div className="mt-3 flex items-center justify-between gap-2">

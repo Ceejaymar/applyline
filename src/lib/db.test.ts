@@ -1,8 +1,12 @@
 import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { DEFAULT_COLUMN_IDS, defaultColumns, defaultSources } from "./schemas";
-import { _resetDatabaseSingletonForTesting, getDatabase, moveJobToColumn } from "./db";
+import { DEFAULT_COLUMN_IDS, defaultColumns, defaultSources } from "@/lib/schemas";
+import {
+  _resetDatabaseSingletonForTesting,
+  getDatabase,
+  moveJobToColumn,
+} from "@/db";
 
 // Dexie only runs upgrade callbacks when migrating from an older version.
 // A brand-new fake-indexeddb instance is empty, so we seed the defaults

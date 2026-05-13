@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_COLUMN_IDS, DEFAULT_SOURCE_IDS, defaultColumns, defaultSources } from "@/lib/schemas";
 import type { BoardJob } from "@/lib/use-jobs";
 
-import { calculateMetrics } from "./metrics-utils";
+import { calculateMetrics } from "@/lib/metrics";
 
 function makeJob(overrides: Partial<BoardJob> = {}): BoardJob {
   const now = new Date().toISOString();
