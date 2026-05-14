@@ -3,52 +3,52 @@
 @tailwind utilities;
 
 :root {
-  --background: 248 24% 98%;
-  --foreground: 230 24% 12%;
+  --background: 212 20% 98%;
+  --foreground: 215 22% 12%;
   --card: 0 0% 100%;
-  --card-foreground: 230 24% 12%;
+  --card-foreground: 215 22% 12%;
   --popover: 0 0% 100%;
-  --popover-foreground: 230 24% 12%;
-  --primary: 250 70% 55%;
+  --popover-foreground: 215 22% 12%;
+  --primary: 210 65% 50%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 232 18% 94%;
-  --secondary-foreground: 230 24% 18%;
-  --muted: 235 16% 94%;
-  --muted-foreground: 230 10% 43%;
+  --secondary: 215 18% 94%;
+  --secondary-foreground: 215 22% 18%;
+  --muted: 218 16% 94%;
+  --muted-foreground: 215 10% 43%;
   --accent: 263 70% 60%;
   --accent-foreground: 0 0% 100%;
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
   --success: 152 55% 34%;
   --success-foreground: 0 0% 100%;
-  --border: 232 18% 88%;
-  --input: 232 18% 88%;
-  --ring: 250 70% 55%;
+  --border: 215 18% 88%;
+  --input: 215 18% 88%;
+  --ring: 210 65% 50%;
   --radius: 0.5rem;
 }
 
 .dark {
-  --background: 235 19% 8%;
-  --foreground: 235 24% 96%;
-  --card: 236 18% 11%;
-  --card-foreground: 235 24% 96%;
-  --popover: 236 18% 11%;
-  --popover-foreground: 235 24% 96%;
-  --primary: 252 86% 70%;
-  --primary-foreground: 235 19% 8%;
-  --secondary: 235 15% 17%;
-  --secondary-foreground: 235 24% 96%;
-  --muted: 235 15% 16%;
-  --muted-foreground: 232 12% 67%;
+  --background: 215 20% 8%;
+  --foreground: 215 22% 96%;
+  --card: 215 18% 11%;
+  --card-foreground: 215 22% 96%;
+  --popover: 215 18% 11%;
+  --popover-foreground: 215 22% 96%;
+  --primary: 210 82% 68%;
+  --primary-foreground: 215 20% 8%;
+  --secondary: 215 15% 17%;
+  --secondary-foreground: 215 22% 96%;
+  --muted: 215 15% 16%;
+  --muted-foreground: 215 12% 67%;
   --accent: 265 78% 68%;
-  --accent-foreground: 235 19% 8%;
+  --accent-foreground: 215 20% 8%;
   --destructive: 0 66% 55%;
   --destructive-foreground: 0 0% 100%;
   --success: 152 46% 45%;
-  --success-foreground: 235 19% 8%;
-  --border: 235 13% 22%;
-  --input: 235 13% 24%;
-  --ring: 252 86% 70%;
+  --success-foreground: 215 20% 8%;
+  --border: 215 13% 22%;
+  --input: 215 13% 24%;
+  --ring: 210 82% 68%;
 }
 
 * {

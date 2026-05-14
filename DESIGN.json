@@ -1,0 +1,184 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-13T00:00:00.000Z",
+  "title": "Design System: Applyline",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Ocean Slate",
+        "canonical": "hsl(210 65% 50%)",
+        "tonalRamp": ["#0C3350", "#155280", "#1D70AC", "#2878C4", "#2D80D2", "#5BA0E0", "#89BFEB", "#BDDAF4"]
+      },
+      "primary-dark": {
+        "role": "primary",
+        "displayName": "Ocean Slate (dark mode)",
+        "canonical": "hsl(210 82% 68%)",
+        "tonalRamp": ["#0C3350", "#155280", "#1D70AC", "#2878C4", "#2D80D2", "#5BA0E0", "#6BADF0", "#BDDAF4"]
+      },
+      "accent": {
+        "role": "secondary",
+        "displayName": "Still Violet",
+        "canonical": "hsl(263 70% 60%)",
+        "tonalRamp": ["#1E0E45", "#3A1B7A", "#5A2DB5", "#7340CE", "#8852E0", "#A47AEB", "#BFA0F2", "#DDD0FA"]
+      },
+      "background-light": {
+        "role": "neutral",
+        "displayName": "Cool Canvas",
+        "canonical": "hsl(212 20% 98%)",
+        "tonalRamp": ["#0E1119", "#161D2C", "#1C2535", "#252F42", "#323D55", "#4A5A7A", "#7A8FAD", "#B8C4D8", "#F7F9FB"]
+      },
+      "background-dark": {
+        "role": "neutral",
+        "displayName": "Void",
+        "canonical": "hsl(215 20% 8%)",
+        "tonalRamp": ["#0E1119", "#161D2C", "#1C2535", "#252F42", "#323D55", "#4A5A7A", "#7A8FAD", "#B8C4D8"]
+      },
+      "foreground-light": {
+        "role": "neutral",
+        "displayName": "Deep Ink",
+        "canonical": "hsl(215 22% 12%)",
+        "tonalRamp": ["#161B24", "#252D3F", "#323D55", "#4A5A7A", "#636C79", "#93A0B4", "#BEC8D8", "#EEF0F4"]
+      },
+      "destructive": {
+        "role": "semantic",
+        "displayName": "Alarm",
+        "canonical": "hsl(0 72% 51%)",
+        "tonalRamp": ["#5C0A0A", "#8B1414", "#B81E1E", "#CC2424", "#DC2828", "#E86060", "#F2A0A0", "#FAD8D8"]
+      },
+      "success": {
+        "role": "semantic",
+        "displayName": "Cleared",
+        "canonical": "hsl(152 55% 34%)",
+        "tonalRamp": ["#0B2E1C", "#124D2F", "#196B42", "#1F8050", "#27865A", "#46AB77", "#7EC8A0", "#B8E6CE"]
+      }
+    },
+    "typographyMeta": {
+      "body": { "displayName": "Body", "purpose": "Default prose, notes, form content." },
+      "title": { "displayName": "Title", "purpose": "Card headings, column names, form section labels." },
+      "headline": { "displayName": "Headline", "purpose": "Page headings, modal titles, section headers." },
+      "label": { "displayName": "Label", "purpose": "Metadata, timestamps, nav items, toolbar labels — the interface workhorse." }
+    },
+    "shadows": [
+      {
+        "name": "ambient-rest",
+        "value": "0 10px 28px -24px hsl(var(--foreground) / 0.6)",
+        "purpose": "Job cards at rest — tight halo, barely perceptible, separates card from column background."
+      },
+      {
+        "name": "soft-hover",
+        "value": "0 16px 40px -24px hsl(var(--foreground) / 0.35)",
+        "purpose": "Job cards on hover — wider spread, lower opacity. Defined as shadow-soft in Tailwind config."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-standard",
+        "value": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "Default easing for color and opacity state transitions (buttons, focus rings, hover backgrounds)."
+      },
+      {
+        "name": "ease-translate",
+        "value": "cubic-bezier(0.2, 0, 0, 1)",
+        "purpose": "Position transitions — drawer slide, card reorder via dnd-kit transform. Ease-out expo feel."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px", "note": "Nav label visibility threshold (sr-only → visible)." }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Primary action. Ocean Slate fill. Used for form submits, create actions, confirm dialogs.",
+      "html": "<button class=\"ds-btn-primary\">Add Job</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 36px; padding: 0 12px; background: #2D80D2; color: #ffffff; font-size: 0.875rem; font-weight: 500; font-family: 'Avenir Next', 'Segoe UI Variable', ui-sans-serif, system-ui, sans-serif; border: none; border-radius: 6px; cursor: pointer; transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; } .ds-btn-primary:hover { background: #2472BD; } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 2px #2D80D2; } .ds-btn-primary:disabled { opacity: 0.5; pointer-events: none; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Low-prominence action. Transparent background. Used for toolbar icons, secondary actions in drawers.",
+      "html": "<button class=\"ds-btn-ghost\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 12h14M12 5l7 7-7 7\"/></svg>Open</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 36px; padding: 0 12px; background: transparent; color: #161B24; font-size: 0.875rem; font-weight: 500; font-family: 'Avenir Next', 'Segoe UI Variable', ui-sans-serif, system-ui, sans-serif; border: none; border-radius: 6px; cursor: pointer; transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; } .ds-btn-ghost:hover { background: #ECEEF3; } .ds-btn-ghost:focus-visible { outline: none; box-shadow: 0 0 0 2px #2D80D2; } .ds-btn-ghost:disabled { opacity: 0.5; pointer-events: none; }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Secondary action with visible border. Used for 'Cancel', export actions, secondary CTAs.",
+      "html": "<button class=\"ds-btn-outline\">Export CSV</button>",
+      "css": ".ds-btn-outline { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 36px; padding: 0 12px; background: #ffffff; color: #161B24; font-size: 0.875rem; font-weight: 500; font-family: 'Avenir Next', 'Segoe UI Variable', ui-sans-serif, system-ui, sans-serif; border: 1px solid #DADDE8; border-radius: 6px; cursor: pointer; transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; } .ds-btn-outline:hover { background: #ECEEF3; } .ds-btn-outline:focus-visible { outline: none; box-shadow: 0 0 0 2px #2D80D2; } .ds-btn-outline:disabled { opacity: 0.5; pointer-events: none; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-default",
+      "description": "Single-line text field. Used for job title, company name, URL fields throughout.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Job title\">",
+      "css": ".ds-input { display: flex; height: 36px; width: 100%; padding: 0 12px; background: #ffffff; color: #161B24; font-size: 0.875rem; font-family: 'Avenir Next', 'Segoe UI Variable', ui-sans-serif, system-ui, sans-serif; border: 1px solid #DADDE8; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); transition: border-color 150ms, box-shadow 150ms; box-sizing: border-box; } .ds-input::placeholder { color: #636C79; } .ds-input:focus { outline: none; box-shadow: 0 0 0 2px #2D80D2; } .ds-input:disabled { opacity: 0.5; cursor: not-allowed; }"
+    },
+    {
+      "name": "Badge — Secondary",
+      "kind": "chip",
+      "refersTo": "badge-default",
+      "description": "Default tag chip. Used for pipeline stage labels, source tags.",
+      "html": "<span class=\"ds-badge\">Applied</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; padding: 2px 8px; background: #ECEEF3; color: #161B24; font-size: 0.75rem; font-weight: 500; font-family: 'Avenir Next', 'Segoe UI Variable', ui-sans-serif, system-ui, sans-serif; border: 1px solid transparent; border-radius: 4px; white-space: nowrap; }"
+    },
+    {
+      "name": "Job Card",
+      "kind": "card",
+      "description": "Primary interface unit — the Kanban job card. Information-dense, compact, scannable. The 4px accent stripe on the left maps to column color.",
+      "html": "<article class=\"ds-job-card\"><div class=\"ds-job-card-stripe\"></div><div class=\"ds-job-card-body\"><div class=\"ds-job-card-title\">Senior Engineer</div><div class=\"ds-job-card-company\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z\"/><polyline points=\"9 22 9 12 15 12 15 22\"/></svg>Acme Corp</div><div class=\"ds-job-card-meta\"><span class=\"ds-job-card-source\">LinkedIn</span><span class=\"ds-job-card-time\">3d</span></div></div></article>",
+      "css": ".ds-job-card { position: relative; display: flex; align-items: stretch; width: 100%; background: #ffffff; border: 1px solid #DADDE8; border-radius: 8px; box-shadow: 0 10px 28px -24px rgba(22, 27, 36, 0.6); overflow: hidden; transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; } .ds-job-card:hover { transform: translateY(-2px); box-shadow: 0 16px 40px -24px rgba(22, 27, 36, 0.35); } .ds-job-card-stripe { position: absolute; inset-block: 0; left: 0; width: 4px; background: #2D80D2; border-radius: 8px 0 0 8px; } .ds-job-card-body { flex: 1; padding: 12px 12px 12px 16px; min-width: 0; } .ds-job-card-title { font-size: 0.875rem; font-weight: 600; font-family: 'Avenir Next', 'Segoe UI Variable', ui-sans-serif, system-ui, sans-serif; color: #161B24; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ds-job-card-company { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 0.75rem; color: #636C79; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ds-job-card-meta { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; } .ds-job-card-source { font-size: 0.6875rem; font-weight: 500; color: #636C79; } .ds-job-card-time { font-size: 0.6875rem; font-weight: 500; background: #ECEEF3; color: #636C79; padding: 2px 6px; border-radius: 4px; }"
+    },
+    {
+      "name": "Navigation Header",
+      "kind": "nav",
+      "description": "Sticky app header. Logo mark + primary nav links + theme toggle. Nav labels collapse to sr-only below 640px.",
+      "html": "<header class=\"ds-nav\"><div class=\"ds-nav-logo\"><div class=\"ds-nav-logomark\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><rect x=\"2\" y=\"7\" width=\"20\" height=\"14\" rx=\"2\" ry=\"2\"/><path d=\"M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16\"/></svg></div><span class=\"ds-nav-title\">Applyline</span></div><nav class=\"ds-nav-links\"><a class=\"ds-nav-link ds-nav-link--active\" href=\"#\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><rect x=\"2\" y=\"7\" width=\"20\" height=\"14\" rx=\"2\"/><path d=\"M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16\"/></svg>Board</a><a class=\"ds-nav-link\" href=\"#\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><line x1=\"18\" y1=\"20\" x2=\"18\" y2=\"10\"/><line x1=\"12\" y1=\"20\" x2=\"12\" y2=\"4\"/><line x1=\"6\" y1=\"20\" x2=\"6\" y2=\"14\"/></svg>Metrics</a></nav></header>",
+      "css": ".ds-nav { position: sticky; top: 0; z-index: 40; display: flex; align-items: center; gap: 16px; height: 56px; padding: 0 20px; background: rgba(247, 249, 251, 0.94); backdrop-filter: blur(8px); border-bottom: 1px solid #DADDE8; } .ds-nav-logo { display: flex; align-items: center; gap: 8px; min-width: 176px; } .ds-nav-logomark { display: grid; place-items: center; width: 32px; height: 32px; background: #2D80D2; color: white; border-radius: 6px; flex-shrink: 0; } .ds-nav-title { font-size: 1rem; font-weight: 600; font-family: 'Avenir Next', 'Segoe UI Variable', ui-sans-serif, system-ui, sans-serif; color: #161B24; } .ds-nav-links { display: flex; align-items: center; gap: 4px; } .ds-nav-link { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; font-size: 0.875rem; font-weight: 500; font-family: 'Avenir Next', 'Segoe UI Variable', ui-sans-serif, system-ui, sans-serif; color: #636C79; text-decoration: none; border-radius: 6px; transition: background-color 150ms, color 150ms; } .ds-nav-link:hover { background: #ECEEF3; color: #161B24; } .ds-nav-link--active { background: rgba(236, 238, 243, 0.7); color: #161B24; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Still Room",
+    "overview": "Applyline is a still room for a noisy process. Job searching generates dozens of decisions made under stress across fragmented platforms — the board is the one place where everything is visible, accountable, and quiet. The design answers this need with high information density and zero decoration: no gradients, no hero metrics, no celebration of the search itself.\n\nThe palette is disciplined — one Ocean Slate blue for action, a purple-violet structural accent used only in hardcoded column-badge contexts, and tinted blue-grey neutrals that recede entirely behind content. Typography is system-native (Avenir Next / Segoe UI Variable), inheriting from the OS without imposing itself. Motion is limited to state acknowledgment and drag reordering; the interface never moves unless the user initiated it.\n\nThis system explicitly rejects everything that makes generic SaaS dashboards feel like dashboards: no purple gradient backgrounds, no large-number hero cards, no sparkline widgets. Applyline should feel like a better tool than the places it's organizing.",
+    "keyCharacteristics": [
+      "Single blue action color; accent (violet) appears only in Kanban column badge contexts",
+      "Flat-by-default surfaces; ambient shadow on cards at rest, soft shadow on hover",
+      "System font stack — no web font load, consistent across OS rendering engines",
+      "Light and dark themes equally considered from day one",
+      "Column accent colors are the only expressive color in the interface"
+    ],
+    "rules": [
+      { "name": "The One Voice Rule", "body": "Ocean Slate is the only color that speaks above the neutrals. It appears on ≤10% of any given screen. Its restraint is the point — when you see blue, there is something to do.", "section": "colors" },
+      { "name": "The Column Exception", "body": "Kanban column accent stripes use an expressive palette (amber, blue, green, teal, violet, red, slate, zinc). This is the only place in the interface where color is decorative rather than functional.", "section": "colors" },
+      { "name": "The Size Floor Rule", "body": "Nothing renders below 11px / 0.6875rem. Any label too long for 11px gets truncated rather than reduced further.", "section": "typography" },
+      { "name": "The Weight Ceiling Rule", "body": "Font weight does not exceed 600. Emphasis comes from weight contrast (400 vs 600), not from extremes.", "section": "typography" },
+      { "name": "The Flat-by-Default Rule", "body": "If an element is not interactive-in-motion (hovered, dragged, or elevated as a modal), it has no shadow. Resting UI is flat.", "section": "elevation" },
+      { "name": "The Halo Rule", "body": "The negative spread value (-24px) keeps shadows tight and directional — they hug the card rather than pooling beneath it. No diffuse glow shadows.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use Ocean Slate (#2D80D2) exclusively for primary interactive elements — buttons, links, focus rings, the logo mark.",
+      "Do rely on weight contrast (400 vs 600) for typographic hierarchy.",
+      "Do cap body prose at 65ch.",
+      "Do keep card shadows tight and directional (-24px negative spread).",
+      "Do treat dark mode as a first-class surface.",
+      "Do use the column accent exception deliberately — for user-configured Kanban columns only."
+    ],
+    "donts": [
+      "Don't use gradient backgrounds, gradient button fills, or background-clip gradient text.",
+      "Don't ship a purple-gradient hero or large-number metric card — this system explicitly rejects the generic SaaS dashboard template.",
+      "Don't copy the aesthetic of LinkedIn or Indeed: no corporate blue, no dense utilitarian tables.",
+      "Don't make Applyline feel like Trello — no bright multicolor card backgrounds, no playful rounded blobs.",
+      "Don't use font-bold (700) or heavier. The weight ceiling is 600.",
+      "Don't render anything below 11px.",
+      "Don't add a border-left stripe greater than 1px as a decorative accent on non-card elements.",
+      "Don't use nested cards.",
+      "Don't add shadows to dark-mode surfaces."
+    ]
+  }
+}
