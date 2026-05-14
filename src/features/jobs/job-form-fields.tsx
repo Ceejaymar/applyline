@@ -222,6 +222,17 @@ export function JobFormFields({ columns, companies, form, sources }: JobFormFiel
             <Input id={`${id}-location`} placeholder="New York, NY" {...form.register("location")} />
           </div>
           <div className="grid gap-2">
+            <Label htmlFor={`${id}-roleType`}>Role type</Label>
+            <Select id={`${id}-roleType`} {...form.register("roleType")}>
+              <option value="">Not set</option>
+              <option value="remote">Remote</option>
+              <option value="hybrid">Hybrid</option>
+              <option value="in_person">In-person</option>
+            </Select>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid gap-2">
             <Label htmlFor={`${id}-compensation`}>Compensation</Label>
             <Input
               id={`${id}-compensation`}
@@ -229,8 +240,6 @@ export function JobFormFields({ columns, companies, form, sources }: JobFormFiel
               {...form.register("compensation")}
             />
           </div>
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="grid gap-2">
             <Label htmlFor={`${id}-resumeVersion`}>Resume version</Label>
             <Input
@@ -239,6 +248,8 @@ export function JobFormFields({ columns, companies, form, sources }: JobFormFiel
               {...form.register("resumeVersion")}
             />
           </div>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="grid gap-2">
             <Label htmlFor={`${id}-appliedAt`}>Applied at</Label>
             <Input id={`${id}-appliedAt`} type="datetime-local" {...form.register("appliedAt")} />

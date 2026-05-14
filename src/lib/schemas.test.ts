@@ -169,6 +169,40 @@ describe("createJobSchema", () => {
       createJobSchema.safeParse({ title: "Engineer", companyId: "company_1" }).success,
     ).toBe(true);
   });
+
+  it("accepts supported role types", () => {
+    expect(
+      createJobSchema.safeParse({
+        title: "Engineer",
+        companyName: "Acme",
+        roleType: "remote",
+      }).success,
+    ).toBe(true);
+    expect(
+      createJobSchema.safeParse({
+        title: "Engineer",
+        companyName: "Acme",
+        roleType: "hybrid",
+      }).success,
+    ).toBe(true);
+    expect(
+      createJobSchema.safeParse({
+        title: "Engineer",
+        companyName: "Acme",
+        roleType: "in_person",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects unsupported role types", () => {
+    expect(
+      createJobSchema.safeParse({
+        title: "Engineer",
+        companyName: "Acme",
+        roleType: "onsite",
+      }).success,
+    ).toBe(false);
+  });
 });
 
 describe("updateJobSchema", () => {

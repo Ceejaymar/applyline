@@ -55,6 +55,7 @@ import type {
   Contact,
   JobContact,
   JobContactRelationshipType,
+  RoleType,
   Source,
 } from "@/lib/schemas";
 import { formatRelativeTimeFull } from "@/lib/dates";
@@ -122,6 +123,16 @@ function formatFullDate(value?: string) {
 
 function relationLabel(value: JobContactRelationshipType) {
   return relationshipOptions.find((option) => option.value === value)?.label ?? "Other";
+}
+
+function roleTypeLabel(value?: RoleType) {
+  const labels: Record<RoleType, string> = {
+    hybrid: "Hybrid",
+    in_person: "In-person",
+    remote: "Remote",
+  };
+
+  return value ? labels[value] : undefined;
 }
 
 function DetailRow({ label, value }: DetailRowProps) {
@@ -396,6 +407,7 @@ function JobReadView({
         <h3 className="text-sm font-semibold">Main details</h3>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <DetailRow label="Location" value={job.location} />
+          <DetailRow label="Role type" value={roleTypeLabel(job.roleType)} />
           <DetailRow label="Compensation" value={job.compensation} />
           <DetailRow label="Resume" value={job.resumeVersion} />
           <div className="grid gap-1 rounded-md border bg-background/55 p-3">
@@ -484,6 +496,7 @@ export function JobDrawer({
         sourceId: job.sourceId ?? "",
         link: job.link ?? "",
         location: job.location ?? "",
+        roleType: job.roleType ?? "",
         compensation: job.compensation ?? "",
         description: job.description ?? "",
         notes: job.notes ?? "",

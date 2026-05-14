@@ -16,6 +16,8 @@ export const jobContactRelationshipTypeSchema = z.enum([
   "other",
 ]);
 
+export const roleTypeSchema = z.enum(["remote", "hybrid", "in_person"]);
+
 export const activityTypeSchema = z.enum([
   "created",
   "updated",
@@ -46,6 +48,7 @@ export const jobSchema = z.object({
   sourceId: z.string().optional(),
   link: z.string().url("Enter a valid URL").optional().or(z.literal("")),
   location: z.string().optional(),
+  roleType: roleTypeSchema.optional(),
   compensation: z.string().optional(),
   description: z.string().optional(),
   notes: z.string().optional(),
@@ -136,6 +139,7 @@ const createJobBaseSchema = jobSchema
     sourceId: true,
     link: true,
     location: true,
+    roleType: true,
     compensation: true,
     description: true,
     notes: true,
@@ -229,6 +233,7 @@ export const defaultSources = [
 
 export type ArchivedReason = z.infer<typeof archivedReasonSchema>;
 export type JobContactRelationshipType = z.infer<typeof jobContactRelationshipTypeSchema>;
+export type RoleType = z.infer<typeof roleTypeSchema>;
 export type ActivityType = z.infer<typeof activityTypeSchema>;
 export type Column = z.infer<typeof columnSchema>;
 export type Job = z.infer<typeof jobSchema>;

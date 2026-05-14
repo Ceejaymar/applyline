@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { CreateJobInput, UpdateJobInput } from "@/lib/schemas";
+import { roleTypeSchema } from "@/lib/schemas";
 
 const optionalUrlSchema = z
   .string()
@@ -18,6 +19,7 @@ export const jobFormSchema = z.object({
   sourceId: z.string().optional(),
   link: optionalUrlSchema,
   location: z.string().trim().optional(),
+  roleType: roleTypeSchema.optional().or(z.literal("")),
   compensation: z.string().trim().optional(),
   tagsText: z.string().optional(),
   description: z.string().optional(),
@@ -36,6 +38,7 @@ export const emptyJobFormValues: JobFormValues = {
   sourceId: "",
   link: "",
   location: "",
+  roleType: "",
   compensation: "",
   tagsText: "",
   description: "",
@@ -99,6 +102,7 @@ export function toJobInput(values: JobFormValues): CreateJobInput & UpdateJobInp
     sourceId: emptyToUndefined(values.sourceId),
     link: emptyToUndefined(values.link) ?? "",
     location: emptyToUndefined(values.location),
+    roleType: emptyToUndefined(values.roleType) as CreateJobInput["roleType"],
     compensation: emptyToUndefined(values.compensation),
     tags: parseTags(values.tagsText),
     description: values.description?.trim() ? values.description : undefined,
