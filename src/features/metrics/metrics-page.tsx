@@ -26,6 +26,7 @@ import {
   type MetricsSummary,
 } from "@/features/metrics/metrics-utils";
 import { formatRelativeTime } from "@/lib/dates";
+import { useNow } from "@/lib/use-now";
 import { useBoardData } from "@/lib/use-jobs";
 import { cn } from "@/lib/utils";
 import { useApplylineUiStore } from "@/store/applyline-ui-store";
@@ -126,9 +127,11 @@ function Panel({
 
 function NeedsAttention({
   metrics,
+  now,
   onOpenJob,
 }: {
   metrics: MetricsSummary;
+  now: Date;
   onOpenJob: (jobId: string) => void;
 }) {
   return (
@@ -152,7 +155,7 @@ function NeedsAttention({
                   <td className="px-3 py-2 text-muted-foreground">{job.companyName}</td>
                   <td className="px-3 py-2 text-muted-foreground">{job.status}</td>
                   <td className="px-3 py-2 text-muted-foreground">
-                    {formatRelativeTime(job.lastUpdateAt)}
+                    {formatRelativeTime(job.lastUpdateAt, now)}
                   </td>
                   <td className="px-3 py-2 text-right">
                     <Button onClick={() => onOpenJob(job.id)} size="sm" variant="outline">
@@ -187,6 +190,7 @@ export function MetricsPage() {
   } = useBoardData();
   const activeJobId = useApplylineUiStore((state) => state.activeJobId);
   const openJob = useApplylineUiStore((state) => state.openJob);
+  const now = useNow();
   const metrics = useMemo(
     () => calculateMetrics({ columns, jobs, sources }),
     [columns, jobs, sources],
@@ -307,7 +311,7 @@ export function MetricsPage() {
             </Panel>
           </div>
 
-          <NeedsAttention metrics={metrics} onOpenJob={openJob} />
+        <NeedsAttention metrics={metrics} now={now} onOpenJob={openJob} />
         </>
       )}
 

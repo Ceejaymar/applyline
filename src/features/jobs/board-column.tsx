@@ -19,11 +19,12 @@ type BoardColumnProps = {
   column: Column;
   columns: Column[];
   jobs: BoardJob[];
+  now: Date;
   onSortChange: (columnId: string, sort: JobSortMode) => void;
   sort: JobSortMode;
 };
 
-export function BoardColumn({ column, columns, jobs, onSortChange, sort }: BoardColumnProps) {
+export function BoardColumn({ column, columns, jobs, now, onSortChange, sort }: BoardColumnProps) {
   const openCreate = useApplylineUiStore((state) => state.openCreate);
   const { isOver, setNodeRef } = useDroppable({
     id: `column:${column.id}`,
@@ -72,7 +73,7 @@ export function BoardColumn({ column, columns, jobs, onSortChange, sort }: Board
       <SortableContext items={jobs.map((job) => job.id)} strategy={verticalListSortingStrategy}>
         <div className="grid min-w-0 max-w-full content-start gap-2 overflow-x-hidden p-2.5">
           {jobs.map((job) => (
-            <JobCard job={job} key={job.id} />
+            <JobCard job={job} key={job.id} now={now} />
           ))}
           {jobs.length === 0 ? (
             <div

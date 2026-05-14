@@ -1,48 +1,156 @@
-/**
- * Compact relative time — for tight spaces like job cards.
- * Examples: "now", "5d", "3w", "2mo", "1y"
- */
-export function formatRelativeTimeCompact(value: string): string {
-  const elapsedMs = Date.now() - new Date(value).getTime();
-  const elapsedDays = Math.max(0, Math.floor(elapsedMs / 86_400_000));
+type DateInput = Date | string | null | undefined;
 
-  if (elapsedDays < 1) return "now";
-  if (elapsedDays < 7) return `${elapsedDays}d`;
-  if (elapsedDays < 35) return `${Math.floor(elapsedDays / 7)}w`;
-  if (elapsedDays < 365) return `${Math.floor(elapsedDays / 30)}mo`;
-  return `${Math.floor(elapsedDays / 365)}y`;
+type JobTimestampLike = {
+  createdAt?: string;
+  lastStatusChangedAt?: string;
+  updatedAt?: string;
+};
+
+const minuteMs = 60_000;
+const hourMs = 60 * minuteMs;
+const dayMs = 24 * hourMs;
+const safeDateFallback = "—";
+
+function toDate(value: DateInput) {
+  if (!value) {
+    return undefined;
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
-/**
- * Standard relative time — day-level granularity with "ago".
- * Examples: "today", "5d ago", "3w ago", "2mo ago"
- */
-export function formatRelativeTime(value: string): string {
-  const elapsedMs = Date.now() - new Date(value).getTime();
-  const elapsedDays = Math.max(0, Math.floor(elapsedMs / 86_400_000));
-
-  if (elapsedDays < 1) return "today";
-  if (elapsedDays < 7) return `${elapsedDays}d ago`;
-  if (elapsedDays < 35) return `${Math.floor(elapsedDays / 7)}w ago`;
-  return `${Math.floor(elapsedDays / 30)}mo ago`;
+function sameYear(date: Date, now: Date) {
+  return date.getFullYear() === now.getFullYear();
 }
 
-/**
- * Detailed relative time — minute/hour/day/week granularity for activity feeds.
- * Examples: "just now", "5m ago", "3h ago", "2d ago", "3w ago"
- */
-export function formatRelativeTimeFull(value: string): string {
-  const elapsedMs = Date.now() - new Date(value).getTime();
-  const elapsedMinutes = Math.max(0, Math.floor(elapsedMs / 60_000));
-
-  if (elapsedMinutes < 1) return "just now";
-  if (elapsedMinutes < 60) return `${elapsedMinutes}m ago`;
-
-  const elapsedHours = Math.floor(elapsedMinutes / 60);
-  if (elapsedHours < 24) return `${elapsedHours}h ago`;
-
-  const elapsedDays = Math.floor(elapsedHours / 24);
-  if (elapsedDays < 7) return `${elapsedDays}d ago`;
-  if (elapsedDays < 35) return `${Math.floor(elapsedDays / 7)}w ago`;
-  return `${Math.floor(elapsedDays / 30)}mo ago`;
+function formatReadableDate(date: Date, now: Date) {
+  return new Intl.DateTimeFormat("en", {
+    day: "numeric",
+    month: "short",
+    ...(sameYear(date, now) ? {} : { year: "numeric" }),
+  }).format(date);
 }
+
+function formatReadableDateTime(date: Date, now: Date) {
+  const dateText = new Intl.DateTimeFormat("en", {
+    day: "numeric",
+    month: "short",
+    ...(sameYear(date, now) ? {} : { year: "numeric" }),
+  }).format(date);
+  const timeText = new Intl.DateTimeFormat("en", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+
+  return `${dateText} at ${timeText}`;
+}
+
+function formatReadableDateTimeWithYear(date: Date) {
+  const dateText = new Intl.DateTimeFormat("en", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+  const timeText = new Intl.DateTimeFormat("en", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+
+  return `${dateText} at ${timeText}`;
+}
+
+function pluralize(value: number, unit: string) {
+  return `${value} ${unit}${value === 1 ? "" : "s"} ago`;
+}
+
+export function getJobLatestTimestamp(job: JobTimestampLike) {
+  return job.lastStatusChangedAt || job.updatedAt || job.createdAt;
+}
+
+export function formatRelativeTime(value: DateInput, now: Date = new Date()): string {
+  const date = toDate(value);
+
+  if (!date) {
+    return safeDateFallback;
+  }
+
+  const elapsedMs = Math.max(0, now.getTime() - date.getTime());
+
+  if (elapsedMs < minuteMs) {
+    return "now";
+  }
+
+  if (elapsedMs < hourMs) {
+    return `${Math.floor(elapsedMs / minuteMs)}m ago`;
+  }
+
+  if (elapsedMs < dayMs) {
+    return `${Math.floor(elapsedMs / hourMs)}h ago`;
+  }
+
+  if (elapsedMs < 7 * dayMs) {
+    return `${Math.floor(elapsedMs / dayMs)}d ago`;
+  }
+
+  return formatReadableDate(date, now);
+}
+
+export function formatRelativeTimeLong(value: DateInput, now: Date = new Date()): string {
+  const date = toDate(value);
+
+  if (!date) {
+    return safeDateFallback;
+  }
+
+  const elapsedMs = Math.max(0, now.getTime() - date.getTime());
+
+  if (elapsedMs < minuteMs) {
+    return "now";
+  }
+
+  if (elapsedMs < hourMs) {
+    return pluralize(Math.floor(elapsedMs / minuteMs), "minute");
+  }
+
+  if (elapsedMs < dayMs) {
+    return pluralize(Math.floor(elapsedMs / hourMs), "hour");
+  }
+
+  if (elapsedMs < 7 * dayMs) {
+    return pluralize(Math.floor(elapsedMs / dayMs), "day");
+  }
+
+  return formatReadableDateTime(date, now);
+}
+
+export function formatAbsoluteDateTime(value: DateInput, now: Date = new Date()): string {
+  const date = toDate(value);
+  return date ? formatReadableDateTime(date, now) : safeDateFallback;
+}
+
+export function formatAbsoluteDateTimeWithYear(value: DateInput): string {
+  const date = toDate(value);
+  return date ? formatReadableDateTimeWithYear(date) : safeDateFallback;
+}
+
+export function formatRelativeWithAbsoluteTime(value: DateInput, now: Date = new Date()): string {
+  const date = toDate(value);
+
+  if (!date) {
+    return safeDateFallback;
+  }
+
+  return `${formatRelativeTimeLong(date, now)} · ${formatAbsoluteDateTime(date, now)}`;
+}
+
+export function getJobDisplayTimestamp(job: JobTimestampLike, now: Date = new Date()) {
+  return formatRelativeTime(getJobLatestTimestamp(job), now);
+}
+
+export function getJobDisplayTimestampTitle(job: JobTimestampLike) {
+  return formatAbsoluteDateTimeWithYear(getJobLatestTimestamp(job));
+}
+
+export const formatRelativeTimeCompact = formatRelativeTime;
+export const formatRelativeTimeFull = formatRelativeTimeLong;

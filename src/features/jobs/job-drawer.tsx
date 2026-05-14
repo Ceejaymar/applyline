@@ -58,7 +58,13 @@ import type {
   RoleType,
   Source,
 } from "@/lib/schemas";
-import { formatRelativeTimeFull } from "@/lib/dates";
+import {
+  formatAbsoluteDateTime,
+  formatAbsoluteDateTimeWithYear,
+  formatRelativeTimeLong,
+  formatRelativeWithAbsoluteTime,
+} from "@/lib/dates";
+import { useNow } from "@/lib/use-now";
 import type { BoardJob } from "@/lib/use-jobs";
 import { cn } from "@/lib/utils";
 import { useApplylineUiStore } from "@/store/applyline-ui-store";
@@ -75,6 +81,7 @@ type JobDrawerProps = {
 };
 
 type DetailRowProps = {
+  title?: string;
   label: string;
   value?: string;
 };
@@ -109,18 +116,6 @@ const contactLinkSchema = z
 
 type ContactLinkValues = z.infer<typeof contactLinkSchema>;
 
-function formatFullDate(value?: string) {
-  if (!value) {
-    return "Not set";
-  }
-
-  return new Intl.DateTimeFormat("en", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
-
-
 function relationLabel(value: JobContactRelationshipType) {
   return relationshipOptions.find((option) => option.value === value)?.label ?? "Other";
 }
@@ -135,13 +130,15 @@ function roleTypeLabel(value?: RoleType) {
   return value ? labels[value] : undefined;
 }
 
-function DetailRow({ label, value }: DetailRowProps) {
+function DetailRow({ label, title, value }: DetailRowProps) {
   return (
     <div className="grid gap-1 rounded-md border bg-background/55 p-3">
       <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </span>
-      <span className="min-h-5 text-sm">{value || "Not set"}</span>
+      <span className="min-h-5 text-sm" title={title}>
+        {value || "Not set"}
+      </span>
     </div>
   );
 }
@@ -358,7 +355,7 @@ function ContactsSection({
   );
 }
 
-function ActivitySection({ activities }: { activities: Activity[] }) {
+function ActivitySection({ activities, now }: { activities: Activity[]; now: Date }) {
   const sortedActivities = activities.toSorted(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
@@ -371,8 +368,12 @@ function ActivitySection({ activities }: { activities: Activity[] }) {
           {sortedActivities.map((activity) => (
             <li className="rounded-md border bg-background/55 p-3" key={activity.id}>
               <p className="text-sm">{activity.message}</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {activity.type.replaceAll("_", " ")} · {formatRelativeTimeFull(activity.createdAt)}
+              <p
+                className="mt-1 text-xs text-muted-foreground"
+                title={formatAbsoluteDateTimeWithYear(activity.createdAt)}
+              >
+                {activity.type.replaceAll("_", " ")} ·{" "}
+                {formatRelativeTimeLong(activity.createdAt, now)}
               </p>
             </li>
           ))}
@@ -391,12 +392,14 @@ function JobReadView({
   contacts,
   job,
   jobContacts,
+  now,
   source,
 }: {
   activities: Activity[];
   contacts: Contact[];
   job: BoardJob;
   jobContacts: JobContact[];
+  now: Date;
   source?: Source;
 }) {
   const SourceIcon = getBoardIcon(source?.icon);
@@ -425,10 +428,31 @@ function JobReadView({
       <section className="grid gap-3">
         <h3 className="text-sm font-semibold">Dates</h3>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <DetailRow label="Created" value={formatFullDate(job.createdAt)} />
-          <DetailRow label="Updated" value={formatFullDate(job.updatedAt)} />
-          <DetailRow label="Applied" value={formatFullDate(job.appliedAt)} />
-          <DetailRow label="Status changed" value={formatFullDate(job.lastStatusChangedAt)} />
+          <DetailRow
+            label="Created"
+            title={formatAbsoluteDateTimeWithYear(job.createdAt)}
+            value={formatAbsoluteDateTime(job.createdAt, now)}
+          />
+          <DetailRow
+            label="Last updated"
+            title={formatAbsoluteDateTimeWithYear(job.updatedAt)}
+            value={formatRelativeWithAbsoluteTime(job.updatedAt, now)}
+          />
+          <DetailRow
+            label="Applied"
+            title={formatAbsoluteDateTimeWithYear(job.appliedAt)}
+            value={formatAbsoluteDateTime(job.appliedAt, now)}
+          />
+          <DetailRow
+            label="Rejected"
+            title={formatAbsoluteDateTimeWithYear(job.rejectedAt)}
+            value={formatAbsoluteDateTime(job.rejectedAt, now)}
+          />
+          <DetailRow
+            label="Last status change"
+            title={formatAbsoluteDateTimeWithYear(job.lastStatusChangedAt)}
+            value={formatRelativeWithAbsoluteTime(job.lastStatusChangedAt, now)}
+          />
         </div>
       </section>
 
@@ -452,7 +476,7 @@ function JobReadView({
       <ContactsSection contacts={contacts} job={job} jobContacts={jobContacts} />
       <PlainTextSection title="Description" value={job.description} />
       <PlainTextSection title="Notes" value={job.notes} />
-      <ActivitySection activities={activities} />
+      <ActivitySection activities={activities} now={now} />
     </div>
   );
 }
@@ -469,6 +493,7 @@ export function JobDrawer({
 }: JobDrawerProps) {
   const closeJob = useApplylineUiStore((state) => state.closeJob);
   const openJob = useApplylineUiStore((state) => state.openJob);
+  const now = useNow();
   const [isEditing, setIsEditing] = useState(false);
   const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
   const [duplicateJob, setDuplicateJob] = useState<BoardJob | null>(null);
@@ -660,7 +685,7 @@ export function JobDrawer({
               <div className="flex flex-wrap gap-2 rounded-md border bg-background/55 p-3 text-sm text-muted-foreground">
                 <span className="inline-flex items-center gap-1.5">
                   <CalendarClock className="size-3.5" />
-                  Updated {formatRelativeTimeFull(job.updatedAt)}
+                  Last updated {formatRelativeWithAbsoluteTime(job.updatedAt, now)}
                 </span>
                 {source ? (
                   <span>
@@ -674,6 +699,7 @@ export function JobDrawer({
                 contacts={contacts}
                 job={job}
                 jobContacts={jobContacts}
+                now={now}
                 source={source}
               />
               <div className="flex justify-between border-t pt-4">

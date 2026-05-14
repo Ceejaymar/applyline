@@ -31,6 +31,7 @@ import {
 } from "@/features/jobs/job-helpers";
 import { moveJobToColumn } from "@/lib/db";
 import { DEFAULT_COLUMN_IDS, type ArchivedReason } from "@/lib/schemas";
+import { useNow } from "@/lib/use-now";
 import { useBoardData, type BoardJob } from "@/lib/use-jobs";
 import { useApplylineUiStore } from "@/store/applyline-ui-store";
 
@@ -103,6 +104,7 @@ export function BoardPage() {
   const columnSorts = useApplylineUiStore((state) => state.columnSorts);
   const openCreate = useApplylineUiStore((state) => state.openCreate);
   const setColumnSort = useApplylineUiStore((state) => state.setColumnSort);
+  const now = useNow();
   const [search, setSearch] = useState("");
   const [selectedTag, setSelectedTag] = useState("");
   const [selectedSource, setSelectedSource] = useState("");
@@ -269,13 +271,14 @@ export function BoardPage() {
                 columns={columns}
                 jobs={getColumnJobs(filteredJobs, column.id, getColumnSort(columnSorts, column.id))}
                 key={column.id}
+                now={now}
                 onSortChange={setColumnSort}
                 sort={getColumnSort(columnSorts, column.id)}
               />
             ))}
           </div>
           <DragOverlay>
-            {activeDragJob ? <JobCardSurface isOverlay job={activeDragJob} /> : null}
+            {activeDragJob ? <JobCardSurface isOverlay job={activeDragJob} now={now} /> : null}
           </DragOverlay>
         </DndContext>
       )}

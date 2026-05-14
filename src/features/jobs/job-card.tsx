@@ -8,13 +8,14 @@ import { Building2, ExternalLink, GripVertical } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getBoardIcon } from "@/features/jobs/board-icons";
-import { formatRelativeTimeCompact } from "@/lib/dates";
+import { getJobDisplayTimestamp, getJobDisplayTimestampTitle } from "@/lib/dates";
 import type { BoardJob } from "@/lib/use-jobs";
 import { cn } from "@/lib/utils";
 import { useApplylineUiStore } from "@/store/applyline-ui-store";
 
 type JobCardProps = {
   job: BoardJob;
+  now: Date;
 };
 
 type JobCardSurfaceProps = {
@@ -22,6 +23,7 @@ type JobCardSurfaceProps = {
   isDragging?: boolean;
   isOverlay?: boolean;
   job: BoardJob;
+  now?: Date;
   onOpen?: () => void;
 };
 
@@ -41,6 +43,7 @@ export function JobCardSurface({
   isDragging,
   isOverlay,
   job,
+  now = new Date(),
   onOpen,
 }: JobCardSurfaceProps) {
   const accentClass = accentByColor[job.columnColor ?? ""] ?? "bg-indigo-500";
@@ -91,8 +94,12 @@ export function JobCardSurface({
                 <span className="min-w-0 truncate">{job.companyName}</span>
               </p>
             </div>
-            <span className="shrink-0 rounded-sm bg-secondary/70 px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
-              {formatRelativeTimeCompact(job.lastStatusChangedAt ?? job.updatedAt)}
+            <span
+              aria-label={`Last activity: ${getJobDisplayTimestampTitle(job)}`}
+              className="max-w-16 shrink-0 truncate rounded-sm bg-secondary/70 px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground"
+              title={getJobDisplayTimestampTitle(job)}
+            >
+              {getJobDisplayTimestamp(job, now)}
             </span>
           </div>
           <div className="mt-3 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 overflow-hidden">
@@ -139,7 +146,7 @@ export function JobCardSurface({
   );
 }
 
-export function JobCard({ job }: JobCardProps) {
+export function JobCard({ job, now }: JobCardProps) {
   const openJob = useApplylineUiStore((state) => state.openJob);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({
@@ -170,6 +177,7 @@ export function JobCard({ job }: JobCardProps) {
         }
         isDragging={isDragging}
         job={job}
+        now={now}
         onOpen={() => openJob(job.id)}
       />
     </div>
