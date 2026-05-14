@@ -37,41 +37,40 @@ export function BoardColumn({ column, columns, jobs, now, onSortChange, sort }: 
     <section
       aria-label={column.name}
       className={cn(
-        "flex min-h-[calc(100vh-13rem)] w-[19rem] max-w-[19rem] shrink-0 flex-col overflow-hidden rounded-lg border bg-card/64 shadow-[0_18px_42px_-36px_hsl(var(--foreground)/0.55)] transition-colors",
+        "flex h-full w-[19rem] max-w-[19rem] shrink-0 flex-col overflow-hidden rounded-lg border bg-card/85 transition-colors",
         isOver && "border-primary/45 bg-primary/5",
       )}
       ref={setNodeRef}
     >
-      <header className="grid min-w-0 gap-2 border-b bg-background/38 p-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className={cn("grid size-7 shrink-0 place-items-center rounded-md border", tintClass)}>
-            <Icon className="size-3.5" />
-          </span>
-          <h2 className="min-w-0 flex-1 truncate text-sm font-semibold tracking-normal" title={column.name}>
-            {column.name}
-          </h2>
-          <span className="shrink-0 rounded-sm border bg-background px-2 py-0.5 text-xs font-medium text-muted-foreground">
-            {jobs.length}
-          </span>
-          <ColumnSortMenu
-            columnName={column.name}
-            onSortChange={(nextSort) => onSortChange(column.id, nextSort)}
-            sort={sort}
-          />
-          <ColumnMenu column={column} columns={columns} jobCount={jobs.length} />
-        </div>
+      <header className="flex min-w-0 shrink-0 items-center gap-2 border-b bg-background/38 p-3">
+        <span className={cn("grid size-7 shrink-0 place-items-center rounded-md border", tintClass)}>
+          <Icon className="size-3.5" />
+        </span>
+        <h2 className="min-w-0 flex-1 truncate text-sm font-semibold tracking-normal" title={column.name}>
+          {column.name}
+        </h2>
+        <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+          {jobs.length}
+        </span>
         <Button
-          className="w-full justify-start border-dashed bg-background/72 text-muted-foreground hover:text-foreground"
+          aria-label={`Add job to ${column.name}`}
+          className="size-7 shrink-0 border-primary/25 text-primary hover:border-primary/50 hover:bg-primary/[0.07]"
           onClick={() => openCreate(column.id)}
-          size="sm"
+          size="icon"
+          title={`Add job to ${column.name}`}
           variant="outline"
         >
-          <Plus />
-          Add job
+          <Plus className="size-3.5" />
         </Button>
+        <ColumnSortMenu
+          columnName={column.name}
+          onSortChange={(nextSort) => onSortChange(column.id, nextSort)}
+          sort={sort}
+        />
+        <ColumnMenu column={column} columns={columns} jobCount={jobs.length} />
       </header>
       <SortableContext items={jobs.map((job) => job.id)} strategy={verticalListSortingStrategy}>
-        <div className="grid min-w-0 max-w-full content-start gap-2 overflow-x-hidden p-2.5">
+        <div className="grid min-h-0 min-w-0 max-w-full flex-1 content-start gap-2 overflow-x-hidden overflow-y-auto p-2.5 [scrollbar-width:thin]">
           {jobs.map((job) => (
             <JobCard job={job} key={job.id} now={now} />
           ))}
@@ -81,7 +80,7 @@ export function BoardColumn({ column, columns, jobs, now, onSortChange, sort }: 
               className="grid h-28 place-items-center rounded-md border border-dashed bg-background/55 px-5 text-center text-xs leading-5 text-muted-foreground"
               role="region"
             >
-              Drop jobs here or add a new one.
+              No jobs yet.
             </div>
           ) : null}
         </div>

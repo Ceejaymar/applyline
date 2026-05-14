@@ -17,8 +17,8 @@ type AppShellProps = {
 
 export function AppShell({ children }: AppShellProps) {
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-40 border-b bg-background/94 backdrop-blur">
+    <div className="flex h-screen flex-col overflow-hidden bg-background">
+      <header className="sticky top-0 z-40 shrink-0 border-b bg-background/94 backdrop-blur">
         <div className="flex h-14 items-center gap-4 px-5">
           <div className="flex min-w-44 items-center gap-2">
             <div className="grid size-8 place-items-center rounded-md bg-primary text-primary-foreground">
@@ -37,7 +37,7 @@ export function AppShell({ children }: AppShellProps) {
           <ThemeToggle />
         </div>
       </header>
-      <main className="px-5 py-5">{children}</main>
+      <main className="min-h-0 flex-1 overflow-auto px-5 py-5">{children}</main>
     </div>
   );
 }

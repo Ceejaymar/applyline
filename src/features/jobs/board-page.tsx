@@ -219,7 +219,7 @@ export function BoardPage() {
   }
 
   return (
-    <div className="grid gap-5">
+    <div className="flex h-full flex-col gap-5">
       <BoardToolbar
         computedFilter={computedFilter}
         jobCount={filteredJobs.length}
@@ -257,43 +257,33 @@ export function BoardPage() {
           </div>
         </div>
       ) : (
-        <DndContext
-          collisionDetection={closestCorners}
-          onDragCancel={onDragCancel}
-          onDragEnd={onDragEnd}
-          onDragStart={onDragStart}
-          sensors={sensors}
-        >
-          <div className="flex min-w-0 max-w-full gap-3 overflow-x-auto pb-4 [scrollbar-width:thin]">
-            {columns.map((column) => (
-              <BoardColumn
-                column={column}
-                columns={columns}
-                jobs={getColumnJobs(filteredJobs, column.id, getColumnSort(columnSorts, column.id))}
-                key={column.id}
-                now={now}
-                onSortChange={setColumnSort}
-                sort={getColumnSort(columnSorts, column.id)}
-              />
-            ))}
-          </div>
-          <DragOverlay>
-            {activeDragJob ? <JobCardSurface isOverlay job={activeDragJob} now={now} /> : null}
-          </DragOverlay>
-        </DndContext>
-      )}
-      {!isLoading && jobs.length === 0 && columns.length > 0 ? (
-        <div className="rounded-lg border border-dashed bg-card/70 p-8 text-center">
-          <h2 className="text-lg font-semibold">No applications yet</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Add a role to start building your pipeline.
-          </p>
-          <Button className="mt-4" onClick={() => openCreate(columns[0]?.id)}>
-            <Plus />
-            Add job
-          </Button>
+        <div className="flex min-h-0 flex-1 flex-col gap-5">
+          <DndContext
+            collisionDetection={closestCorners}
+            onDragCancel={onDragCancel}
+            onDragEnd={onDragEnd}
+            onDragStart={onDragStart}
+            sensors={sensors}
+          >
+            <div className="flex min-h-0 min-w-0 flex-1 gap-3 overflow-x-auto pb-4 [scrollbar-width:thin]">
+              {columns.map((column) => (
+                <BoardColumn
+                  column={column}
+                  columns={columns}
+                  jobs={getColumnJobs(filteredJobs, column.id, getColumnSort(columnSorts, column.id))}
+                  key={column.id}
+                  now={now}
+                  onSortChange={setColumnSort}
+                  sort={getColumnSort(columnSorts, column.id)}
+                />
+              ))}
+            </div>
+            <DragOverlay>
+              {activeDragJob ? <JobCardSurface isOverlay job={activeDragJob} now={now} /> : null}
+            </DragOverlay>
+          </DndContext>
         </div>
-      ) : null}
+      )}
       <JobDrawer
         activities={activities}
         columns={columns}
