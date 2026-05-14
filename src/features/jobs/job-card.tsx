@@ -5,9 +5,9 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Building2, ExternalLink, GripVertical } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getBoardIcon } from "@/features/jobs/board-icons";
+import { TagBadge } from "@/features/jobs/tag-badge";
 import { getJobDisplayTimestamp, getJobDisplayTimestampTitle } from "@/lib/dates";
 import type { BoardJob } from "@/lib/use-jobs";
 import { cn } from "@/lib/utils";
@@ -27,16 +27,6 @@ type JobCardSurfaceProps = {
   onOpen?: () => void;
 };
 
-const accentByColor: Record<string, string> = {
-  amber: "bg-amber-400",
-  blue: "bg-blue-500",
-  green: "bg-emerald-500",
-  red: "bg-rose-500",
-  slate: "bg-slate-400",
-  teal: "bg-teal-500",
-  violet: "bg-violet-500",
-  zinc: "bg-zinc-400",
-};
 
 export function JobCardSurface({
   dragHandle,
@@ -46,7 +36,6 @@ export function JobCardSurface({
   now = new Date(),
   onOpen,
 }: JobCardSurfaceProps) {
-  const accentClass = accentByColor[job.columnColor ?? ""] ?? "bg-indigo-500";
   const shownTags = job.tags.slice(0, 2);
   const SourceIcon = getBoardIcon(job.sourceIcon);
 
@@ -54,7 +43,7 @@ export function JobCardSurface({
     <article
       aria-label={onOpen ? `${job.title} at ${job.companyName}` : undefined}
       className={cn(
-        "group relative w-full max-w-full overflow-hidden rounded-md border bg-card text-card-foreground shadow-[0_10px_28px_-24px_hsl(var(--foreground)/0.6)] transition duration-200",
+        "group w-full max-w-full overflow-hidden rounded-md border bg-card text-card-foreground shadow-[0_10px_28px_-24px_hsl(var(--foreground)/0.6)] transition duration-200",
         "hover:-translate-y-0.5 hover:border-primary/28 hover:shadow-soft",
         onOpen && "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         isDragging && "opacity-45",
@@ -74,8 +63,7 @@ export function JobCardSurface({
       role={onOpen ? "button" : undefined}
       tabIndex={onOpen ? 0 : undefined}
     >
-      <div className={cn("absolute inset-y-0 left-0 w-1", accentClass)} />
-      <div className="flex w-full max-w-full min-w-0 items-start gap-2 overflow-hidden p-3 pl-3.5">
+      <div className="flex w-full max-w-full min-w-0 items-start gap-2 overflow-hidden p-3">
         {dragHandle}
         <div className="min-w-0 flex-1 overflow-hidden text-left">
           <div className="flex min-w-0 items-start justify-between gap-3 overflow-hidden">
@@ -113,14 +101,7 @@ export function JobCardSurface({
             </span>
             <div className="flex min-w-0 max-w-full items-center justify-end gap-1 overflow-hidden">
               {shownTags.map((tag) => (
-                <Badge
-                  className="min-w-0 max-w-[5.75rem] truncate border-indigo-500/15 bg-indigo-500/[0.08] px-1.5 py-0 text-[10px] text-indigo-700 dark:text-indigo-200"
-                  key={tag}
-                  title={tag}
-                  variant="outline"
-                >
-                  {tag}
-                </Badge>
+                <TagBadge className="min-w-0 max-w-[5.75rem] truncate" key={tag} tag={tag} />
               ))}
             </div>
           </div>

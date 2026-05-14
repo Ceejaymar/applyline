@@ -18,6 +18,7 @@ import { z } from "zod";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TagBadge } from "@/features/jobs/tag-badge";
 import {
   Dialog,
   DialogContent,
@@ -81,10 +82,26 @@ type JobDrawerProps = {
 };
 
 type DetailRowProps = {
+  dimmed?: boolean;
   title?: string;
   label: string;
   value?: string;
 };
+
+const activityTypeLabels: Record<string, string> = {
+  created: "Created",
+  updated: "Updated",
+  moved: "Moved",
+  contact_added: "Contact added",
+  contact_removed: "Contact removed",
+  note_added: "Note added",
+  archived: "Archived",
+  restored: "Restored",
+};
+
+function formatActivityType(type: string): string {
+  return activityTypeLabels[type] ?? type.replaceAll("_", " ");
+}
 
 const relationshipOptions: Array<{
   label: string;
@@ -130,9 +147,9 @@ function roleTypeLabel(value?: RoleType) {
   return value ? labels[value] : undefined;
 }
 
-function DetailRow({ label, title, value }: DetailRowProps) {
+function DetailRow({ dimmed, label, title, value }: DetailRowProps) {
   return (
-    <div className="grid gap-1 rounded-md border bg-background/55 p-3">
+    <div className={cn("grid gap-1 rounded-md border bg-background/55 p-3", dimmed && "opacity-50")}>
       <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </span>
@@ -372,7 +389,7 @@ function ActivitySection({ activities, now }: { activities: Activity[]; now: Dat
                 className="mt-1 text-xs text-muted-foreground"
                 title={formatAbsoluteDateTimeWithYear(activity.createdAt)}
               >
-                {activity.type.replaceAll("_", " ")} ·{" "}
+                {formatActivityType(activity.type)} ·{" "}
                 {formatRelativeTimeLong(activity.createdAt, now)}
               </p>
             </li>
@@ -429,11 +446,13 @@ function JobReadView({
         <h3 className="text-sm font-semibold">Dates</h3>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <DetailRow
+            dimmed
             label="Created"
             title={formatAbsoluteDateTimeWithYear(job.createdAt)}
             value={formatAbsoluteDateTime(job.createdAt, now)}
           />
           <DetailRow
+            dimmed
             label="Last updated"
             title={formatAbsoluteDateTimeWithYear(job.updatedAt)}
             value={formatRelativeWithAbsoluteTime(job.updatedAt, now)}
@@ -461,9 +480,7 @@ function JobReadView({
         {job.tags.length > 0 ? (
           <div className="flex flex-wrap gap-1.5">
             {job.tags.map((tag) => (
-              <Badge key={tag} variant="outline">
-                {tag}
-              </Badge>
+              <TagBadge key={tag} tag={tag} />
             ))}
           </div>
         ) : (
@@ -496,6 +513,7 @@ export function JobDrawer({
   const now = useNow();
   const [isEditing, setIsEditing] = useState(false);
   const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [duplicateJob, setDuplicateJob] = useState<BoardJob | null>(null);
   const [pendingValues, setPendingValues] = useState<JobFormValues | null>(null);
   const form = useForm<JobFormValues>({
@@ -507,10 +525,12 @@ export function JobDrawer({
   useEffect(() => {
     if (!job) {
       setIsEditing(false);
+      setIsConfirmingDelete(false);
       setDuplicateJob(null);
       setPendingValues(null);
       return;
     }
+    setIsConfirmingDelete(false);
 
     form.reset(
       toJobFormValues({
@@ -567,7 +587,11 @@ export function JobDrawer({
     await saveJob(values);
   }
 
-  async function onDelete() {
+  function onDelete() {
+    setIsConfirmingDelete(true);
+  }
+
+  async function confirmDelete() {
     if (!job) {
       return;
     }
@@ -664,10 +688,22 @@ export function JobDrawer({
                 sources={sources}
               />
               <div className="flex items-center justify-between gap-3 border-t pt-4">
-                <Button onClick={onDelete} type="button" variant="destructive">
-                  <Trash2 />
-                  Delete
-                </Button>
+                {isConfirmingDelete ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Delete permanently?</span>
+                    <Button onClick={() => setIsConfirmingDelete(false)} size="sm" type="button" variant="ghost">
+                      Cancel
+                    </Button>
+                    <Button onClick={confirmDelete} size="sm" type="button" variant="destructive">
+                      Confirm
+                    </Button>
+                  </div>
+                ) : (
+                  <Button onClick={onDelete} type="button" variant="destructive">
+                    <Trash2 />
+                    Delete
+                  </Button>
+                )}
                 <div className="flex gap-2">
                   <Button onClick={onArchive} type="button" variant="outline">
                     <Archive />
@@ -703,10 +739,22 @@ export function JobDrawer({
                 source={source}
               />
               <div className="flex justify-between border-t pt-4">
-                <Button onClick={onDelete} type="button" variant="destructive">
-                  <Trash2 />
-                  Delete
-                </Button>
+                {isConfirmingDelete ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Delete permanently?</span>
+                    <Button onClick={() => setIsConfirmingDelete(false)} size="sm" type="button" variant="ghost">
+                      Cancel
+                    </Button>
+                    <Button onClick={confirmDelete} size="sm" type="button" variant="destructive">
+                      Confirm
+                    </Button>
+                  </div>
+                ) : (
+                  <Button onClick={onDelete} type="button" variant="destructive">
+                    <Trash2 />
+                    Delete
+                  </Button>
+                )}
                 <Button onClick={onArchive} type="button" variant="outline">
                   <Archive />
                   Archive

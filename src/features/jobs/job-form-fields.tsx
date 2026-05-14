@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
-import { Plus, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Plus, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ import { createSource } from "@/lib/db";
 import type { Column, Company, Source } from "@/lib/schemas";
 
 type JobFormFieldsProps = {
+  collapsible?: boolean;
   columns: Column[];
   companies: Company[];
   form: UseFormReturn<JobFormValues>;
@@ -155,12 +156,14 @@ function SourceField({
   );
 }
 
-export function JobFormFields({ columns, companies, form, sources }: JobFormFieldsProps) {
+export function JobFormFields({ collapsible, columns, companies, form, sources }: JobFormFieldsProps) {
   const id = useId();
   const errors = form.formState.errors;
   const link = form.watch("link");
   const selectedSourceId = form.watch("sourceId");
   const shouldEncourageContact = isReferralSource(selectedSourceId, sources);
+  const [showDetails, setShowDetails] = useState(false);
+  const showDetailFields = !collapsible || showDetails;
 
   useEffect(() => {
     if (selectedSourceId) {
@@ -215,78 +218,93 @@ export function JobFormFields({ columns, companies, form, sources }: JobFormFiel
         </div>
       </section>
 
-      <section className="grid gap-3">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="grid gap-2">
-            <Label htmlFor={`${id}-location`}>Location</Label>
-            <Input id={`${id}-location`} placeholder="New York, NY" {...form.register("location")} />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor={`${id}-roleType`}>Role type</Label>
-            <Select id={`${id}-roleType`} {...form.register("roleType")}>
-              <option value="">Not set</option>
-              <option value="remote">Remote</option>
-              <option value="hybrid">Hybrid</option>
-              <option value="in_person">In-person</option>
-            </Select>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="grid gap-2">
-            <Label htmlFor={`${id}-compensation`}>Compensation</Label>
-            <Input
-              id={`${id}-compensation`}
-              placeholder="$120k - $150k"
-              {...form.register("compensation")}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor={`${id}-resumeVersion`}>Resume version</Label>
-            <Input
-              id={`${id}-resumeVersion`}
-              placeholder="resume-product-v4.pdf"
-              {...form.register("resumeVersion")}
-            />
-          </div>
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="grid gap-2">
-            <Label htmlFor={`${id}-appliedAt`}>Applied at</Label>
-            <Input id={`${id}-appliedAt`} type="datetime-local" {...form.register("appliedAt")} />
-          </div>
-        </div>
-      </section>
+      {collapsible ? (
+        <button
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          onClick={() => setShowDetails((prev) => !prev)}
+          type="button"
+        >
+          {showDetails ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+          {showDetails ? "Fewer details" : "Add details"}
+        </button>
+      ) : null}
 
-      <section className="grid gap-3">
-        <div className="grid gap-2">
-          <Label htmlFor={`${id}-tags`}>Tags</Label>
-          <Input
-            id={`${id}-tags`}
-            placeholder="frontend, remote"
-            {...form.register("tagsText")}
-          />
+      {showDetailFields ? (
+        <div className="grid gap-5">
+          <section className="grid gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor={`${id}-location`}>Location</Label>
+                <Input id={`${id}-location`} placeholder="New York, NY" {...form.register("location")} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor={`${id}-roleType`}>Role type</Label>
+                <Select id={`${id}-roleType`} {...form.register("roleType")}>
+                  <option value="">Not set</option>
+                  <option value="remote">Remote</option>
+                  <option value="hybrid">Hybrid</option>
+                  <option value="in_person">In-person</option>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor={`${id}-compensation`}>Compensation</Label>
+                <Input
+                  id={`${id}-compensation`}
+                  placeholder="$120k - $150k"
+                  {...form.register("compensation")}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor={`${id}-resumeVersion`}>Resume version</Label>
+                <Input
+                  id={`${id}-resumeVersion`}
+                  placeholder="resume-product-v4.pdf"
+                  {...form.register("resumeVersion")}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor={`${id}-appliedAt`}>Applied at</Label>
+                <Input id={`${id}-appliedAt`} type="datetime-local" {...form.register("appliedAt")} />
+              </div>
+            </div>
+          </section>
+
+          <section className="grid gap-3">
+            <div className="grid gap-2">
+              <Label htmlFor={`${id}-tags`}>Tags</Label>
+              <Input
+                id={`${id}-tags`}
+                placeholder="frontend, remote"
+                {...form.register("tagsText")}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor={`${id}-description`}>Description</Label>
+              <Textarea
+                className="min-h-44 resize-y whitespace-pre-wrap font-mono text-[13px] leading-6"
+                id={`${id}-description`}
+                placeholder="Paste the job description here..."
+                spellCheck
+                {...form.register("description")}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor={`${id}-notes`}>Notes</Label>
+              <Textarea
+                className="min-h-32 resize-y whitespace-pre-wrap leading-6"
+                id={`${id}-notes`}
+                placeholder="Next steps, reminders, links..."
+                spellCheck
+                {...form.register("notes")}
+              />
+            </div>
+          </section>
         </div>
-        <div className="grid gap-2">
-          <Label htmlFor={`${id}-description`}>Description</Label>
-          <Textarea
-            className="min-h-44 resize-y whitespace-pre-wrap font-mono text-[13px] leading-6"
-            id={`${id}-description`}
-            placeholder="Paste the job description here..."
-            spellCheck
-            {...form.register("description")}
-          />
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor={`${id}-notes`}>Notes</Label>
-          <Textarea
-            className="min-h-32 resize-y whitespace-pre-wrap leading-6"
-            id={`${id}-notes`}
-            placeholder="Next steps, reminders, links..."
-            spellCheck
-            {...form.register("notes")}
-          />
-        </div>
-      </section>
+      ) : null}
     </div>
   );
 }

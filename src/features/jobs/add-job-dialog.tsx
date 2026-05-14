@@ -105,6 +105,7 @@ export function AddJobDialog({ columns, companies, jobs, sources }: AddJobDialog
             />
           ) : null}
           <JobFormFields
+            collapsible
             columns={columns}
             companies={companies}
             form={form}

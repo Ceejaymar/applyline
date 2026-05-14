@@ -22,10 +22,12 @@ export type MetricsSummary = {
   applicationsThisWeek: number;
   appliedJobCount: number;
   averageDaysInCurrentStatus: number | null;
+  interviewJobCount: number;
   interviewRate: number;
   jobsByColumn: CountDatum[];
   needsAttention: AttentionJob[];
   noResponseCount: number;
+  offerJobCount: number;
   offerRate: number;
   rejectionCount: number;
   staleJobCount: number;
@@ -108,8 +110,8 @@ export function calculateMetrics({
     return sum + Math.max(0, now.getTime() - new Date(getJobStatusDate(job)).getTime());
   }, 0);
   const appliedJobCount = jobs.filter(isAppliedJob).length;
-  const interviewCount = jobs.filter((job) => laterStageColumnIds.has(job.columnId)).length;
-  const offerCount = jobs.filter((job) => job.columnId === DEFAULT_COLUMN_IDS.offer).length;
+  const interviewJobCount = jobs.filter((job) => laterStageColumnIds.has(job.columnId)).length;
+  const offerJobCount = jobs.filter((job) => job.columnId === DEFAULT_COLUMN_IDS.offer).length;
   const needsAttention = jobs
     .filter((job) => isNoUpdate14DaysJob(job, now))
     .toSorted(
@@ -129,7 +131,8 @@ export function calculateMetrics({
     appliedJobCount,
     averageDaysInCurrentStatus:
       jobs.length === 0 ? null : Math.round(totalStatusMs / jobs.length / 86_400_000),
-    interviewRate: toRate(interviewCount, appliedJobCount),
+    interviewJobCount,
+    interviewRate: toRate(interviewJobCount, appliedJobCount),
     jobsByColumn: columns.map((column) => ({
       color: column.color,
       id: column.id,
@@ -138,7 +141,8 @@ export function calculateMetrics({
     })),
     needsAttention,
     noResponseCount: jobs.filter((job) => job.columnId === DEFAULT_COLUMN_IDS.noResponse).length,
-    offerRate: toRate(offerCount, appliedJobCount),
+    offerJobCount,
+    offerRate: toRate(offerJobCount, appliedJobCount),
     rejectionCount: jobs.filter((job) => job.columnId === DEFAULT_COLUMN_IDS.rejected).length,
     staleJobCount: needsAttention.length,
     topSources: topCounts(

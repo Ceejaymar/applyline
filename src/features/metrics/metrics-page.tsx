@@ -5,16 +5,9 @@ import type { ComponentType, ReactNode } from "react";
 import {
   AlertCircle,
   ArrowUpRight,
-  BadgeCheck,
-  BriefcaseBusiness,
-  CalendarDays,
   ChartNoAxesColumn,
-  Clock3,
-  Send,
   Tag,
-  TimerReset,
-  Trophy,
-  XCircle,
+  TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -31,16 +24,10 @@ import { useBoardData } from "@/lib/use-jobs";
 import { cn } from "@/lib/utils";
 import { useApplylineUiStore } from "@/store/applyline-ui-store";
 
-type MetricCardProps = {
-  detail?: string;
-  icon: ComponentType<{ className?: string }>;
-  label: string;
-  value: string | number;
-};
-
 type BarListProps = {
   emptyLabel: string;
   items: CountDatum[];
+  neutral?: boolean;
 };
 
 const colorBarClass: Record<string, string> = {
@@ -54,23 +41,7 @@ const colorBarClass: Record<string, string> = {
   zinc: "bg-zinc-400",
 };
 
-
-function MetricCard({ detail, icon: Icon, label, value }: MetricCardProps) {
-  return (
-    <section className="rounded-lg border bg-card p-4 shadow-[0_16px_36px_-34px_hsl(var(--foreground)/0.55)]">
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-sm text-muted-foreground">{label}</span>
-        <span className="grid size-8 place-items-center rounded-md bg-primary/10 text-primary">
-          <Icon className="size-4" />
-        </span>
-      </div>
-      <p className="mt-3 text-2xl font-semibold tracking-normal">{value}</p>
-      {detail ? <p className="mt-1 text-xs text-muted-foreground">{detail}</p> : null}
-    </section>
-  );
-}
-
-function BarList({ emptyLabel, items }: BarListProps) {
+function BarList({ emptyLabel, items, neutral }: BarListProps) {
   const maxValue = Math.max(1, ...items.map((item) => item.value));
 
   return (
@@ -78,15 +49,16 @@ function BarList({ emptyLabel, items }: BarListProps) {
       {items.length > 0 ? (
         items.map((item) => {
           const width = `${Math.max(4, (item.value / maxValue) * 100)}%`;
-          const colorClass = item.color
-            ? colorBarClass[item.color] ?? colorBarClass.violet
-            : colorBarClass.violet;
+          const colorClass =
+            !neutral && item.color
+              ? (colorBarClass[item.color] ?? "bg-foreground/25")
+              : "bg-foreground/25";
 
           return (
             <div className="grid gap-1.5" key={item.id}>
               <div className="flex items-center justify-between gap-3 text-sm">
                 <span className="truncate">{item.label}</span>
-                <span className="font-medium">{item.value}</span>
+                <span className="font-medium tabular-nums">{item.value}</span>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-secondary">
                 <div className={cn("h-full rounded-full", colorClass)} style={{ width }} />
@@ -105,10 +77,12 @@ function BarList({ emptyLabel, items }: BarListProps) {
 
 function Panel({
   children,
+  count,
   icon: Icon,
   title,
 }: {
   children: ReactNode;
+  count?: number;
   icon: ComponentType<{ className?: string }>;
   title: string;
 }) {
@@ -119,8 +93,111 @@ function Panel({
           <Icon className="size-4" />
         </span>
         <h2 className="text-sm font-semibold">{title}</h2>
+        {count !== undefined && count > 0 ? (
+          <span className="ml-auto rounded-sm border bg-background px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
+            {count}
+          </span>
+        ) : null}
       </div>
       {children}
+    </section>
+  );
+}
+
+function FunnelStep({
+  count,
+  dimmed,
+  label,
+  max,
+  rate,
+}: {
+  count: number;
+  dimmed?: boolean;
+  label: string;
+  max: number;
+  rate?: number;
+}) {
+  const width = max > 0 ? `${Math.max(2, (count / max) * 100)}%` : "2%";
+
+  return (
+    <div className={cn("grid gap-1.5", dimmed && "opacity-40")}>
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="font-medium tabular-nums">
+          {count}
+          {rate !== undefined ? (
+            <span className="ml-1.5 text-xs text-muted-foreground">({rate}%)</span>
+          ) : null}
+        </span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-secondary">
+        <div className="h-full rounded-full bg-primary/65" style={{ width }} />
+      </div>
+    </div>
+  );
+}
+
+function PipelinePanel({ metrics }: { metrics: MetricsSummary }) {
+  const noApplied = metrics.appliedJobCount === 0;
+
+  return (
+    <section className="grid gap-4 rounded-lg border bg-card p-4 shadow-[0_16px_36px_-34px_hsl(var(--foreground)/0.55)]">
+      <div className="flex items-center gap-2">
+        <span className="grid size-8 place-items-center rounded-md bg-secondary text-muted-foreground">
+          <TrendingUp className="size-4" />
+        </span>
+        <h2 className="text-sm font-semibold">Pipeline</h2>
+        <span className="ml-auto text-xs text-muted-foreground">{metrics.totalJobs} tracked</span>
+      </div>
+      <div className="grid gap-3">
+        <FunnelStep
+          count={metrics.appliedJobCount}
+          label="Applied"
+          max={metrics.appliedJobCount}
+        />
+        <FunnelStep
+          count={metrics.interviewJobCount}
+          dimmed={noApplied}
+          label="Interview"
+          max={metrics.appliedJobCount}
+          rate={noApplied ? undefined : metrics.interviewRate}
+        />
+        <FunnelStep
+          count={metrics.offerJobCount}
+          dimmed={noApplied}
+          label="Offer"
+          max={metrics.appliedJobCount}
+          rate={noApplied ? undefined : metrics.offerRate}
+        />
+      </div>
+    </section>
+  );
+}
+
+function ActivityPanel({ metrics }: { metrics: MetricsSummary }) {
+  const stats = [
+    { label: "This week", value: metrics.applicationsThisWeek },
+    { label: "This month", value: metrics.applicationsThisMonth },
+    { label: "Rejections", value: metrics.rejectionCount },
+    { label: "No response", value: metrics.noResponseCount },
+  ];
+
+  return (
+    <section className="rounded-lg border bg-card p-4 shadow-[0_16px_36px_-34px_hsl(var(--foreground)/0.55)]">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
+        {stats.map((stat, i) => (
+          <div
+            className={cn(
+              "grid gap-1",
+              i > 0 && "sm:border-l sm:pl-4",
+            )}
+            key={stat.label}
+          >
+            <p className="text-xs text-muted-foreground">{stat.label}</p>
+            <p className="text-xl font-semibold tabular-nums">{stat.value}</p>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }
@@ -135,7 +212,11 @@ function NeedsAttention({
   onOpenJob: (jobId: string) => void;
 }) {
   return (
-    <Panel icon={AlertCircle} title="Needs attention">
+    <Panel
+      count={metrics.needsAttention.length}
+      icon={AlertCircle}
+      title="Needs attention"
+    >
       {metrics.needsAttention.length > 0 ? (
         <div className="overflow-hidden rounded-md border">
           <table className="w-full border-collapse text-left text-sm">
@@ -211,17 +292,17 @@ export function MetricsPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-normal">Metrics</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Local pipeline health, follow-up pressure, and source signal.
+            How your job search is moving.
           </p>
         </div>
-        <div className="rounded-md border bg-card px-3 py-2 text-sm text-muted-foreground">
-          {isLoading ? "Loading metrics..." : `${metrics.totalJobs} tracked jobs`}
-        </div>
+        <span className="text-sm text-muted-foreground">
+          {isLoading ? "Loading..." : `${metrics.totalJobs} tracked jobs`}
+        </span>
       </div>
 
       {isLoading ? (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, index) => (
+          {Array.from({ length: 4 }).map((_, index) => (
             <div className="h-32 animate-pulse rounded-lg border bg-muted/45" key={index} />
           ))}
         </div>
@@ -244,74 +325,26 @@ export function MetricsPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <MetricCard icon={BriefcaseBusiness} label="Total jobs" value={metrics.totalJobs} />
-            <MetricCard
-              detail="Using appliedAt dates"
-              icon={CalendarDays}
-              label="Applied this week"
-              value={metrics.applicationsThisWeek}
-            />
-            <MetricCard
-              detail="Using appliedAt dates"
-              icon={Send}
-              label="Applied this month"
-              value={metrics.applicationsThisMonth}
-            />
-            <MetricCard
-              detail={`${metrics.appliedJobCount} applied jobs`}
-              icon={BadgeCheck}
-              label="Interview rate"
-              value={`${metrics.interviewRate}%`}
-            />
-            <MetricCard
-              detail={`${metrics.appliedJobCount} applied jobs`}
-              icon={Trophy}
-              label="Offer rate"
-              value={`${metrics.offerRate}%`}
-            />
-            <MetricCard icon={XCircle} label="Rejections" value={metrics.rejectionCount} />
-            <MetricCard
-              icon={TimerReset}
-              label="No response"
-              value={metrics.noResponseCount}
-            />
-            <MetricCard
-              detail={
-                metrics.averageDaysInCurrentStatus === null
-                  ? "No status history yet"
-                  : "Across all tracked jobs"
-              }
-              icon={Clock3}
-              label="Avg days in status"
-              value={metrics.averageDaysInCurrentStatus ?? "N/A"}
-            />
+          <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+            <PipelinePanel metrics={metrics} />
+            <ActivityPanel metrics={metrics} />
           </div>
 
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">
             <Panel icon={ChartNoAxesColumn} title="Jobs by status">
               <BarList emptyLabel="No jobs yet." items={metrics.jobsByColumn} />
             </Panel>
-            <Panel icon={AlertCircle} title="Quiet for 14+ days">
-              <div className="rounded-md border bg-background/55 p-4">
-                <p className="text-3xl font-semibold">{metrics.staleJobCount}</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Applied or Interview jobs with no status/update activity in 14+ days.
-                </p>
-              </div>
-            </Panel>
+            <div className="grid gap-4">
+              <Panel icon={ArrowUpRight} title="Top sources">
+                <BarList emptyLabel="No source data yet." items={metrics.topSources} neutral />
+              </Panel>
+              <Panel icon={Tag} title="Top tags">
+                <BarList emptyLabel="No tags yet." items={metrics.topTags} neutral />
+              </Panel>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <Panel icon={ArrowUpRight} title="Top sources">
-              <BarList emptyLabel="No source data yet." items={metrics.topSources} />
-            </Panel>
-            <Panel icon={Tag} title="Top tags">
-              <BarList emptyLabel="No tags yet." items={metrics.topTags} />
-            </Panel>
-          </div>
-
-        <NeedsAttention metrics={metrics} now={now} onOpenJob={openJob} />
+          <NeedsAttention metrics={metrics} now={now} onOpenJob={openJob} />
         </>
       )}
 

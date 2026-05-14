@@ -1,6 +1,6 @@
 "use client";
 
-import { Filter, Plus, Search, X } from "lucide-react";
+import { Plus, Search, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -108,11 +108,7 @@ export function BoardToolbar({
             >
               <X />
             </Button>
-          ) : (
-            <Button aria-label="Filters" disabled size="icon" title="Filters" variant="outline">
-              <Filter />
-            </Button>
-          )}
+          ) : null}
           <Button onClick={onCreateColumn}>
             <Plus />
             Column
