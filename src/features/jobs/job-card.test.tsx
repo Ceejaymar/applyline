@@ -42,7 +42,7 @@ describe("JobCardSurface", () => {
     });
     expect(card).toHaveClass("w-full", "max-w-full", "overflow-hidden");
 
-    expect(screen.getByRole("heading", { name: job.title })).toHaveClass("truncate");
+    expect(screen.getByRole("heading", { name: job.title })).toHaveClass("line-clamp-2");
     expect(screen.getByTitle(job.companyName)).toHaveClass("overflow-hidden");
     expect(screen.getByTitle(job.tags[0])).toHaveClass("truncate", "max-w-[5.75rem]");
     expect(screen.getByLabelText(/Last activity:/)).toBeInTheDocument();

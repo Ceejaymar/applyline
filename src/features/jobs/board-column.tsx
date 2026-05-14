@@ -70,7 +70,7 @@ export function BoardColumn({ column, columns, jobs, now, onSortChange, sort }: 
         <ColumnMenu column={column} columns={columns} jobCount={jobs.length} />
       </header>
       <SortableContext items={jobs.map((job) => job.id)} strategy={verticalListSortingStrategy}>
-        <div className="grid min-h-0 min-w-0 max-w-full flex-1 content-start gap-2 overflow-x-hidden overflow-y-auto p-2.5 [scrollbar-width:thin]">
+        <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto p-2.5 [scrollbar-width:thin]">
           {jobs.map((job) => (
             <JobCard job={job} key={job.id} now={now} />
           ))}
