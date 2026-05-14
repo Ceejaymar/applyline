@@ -153,10 +153,10 @@ export function JobCardSurface({
       ) : null}
 
       <div className="px-3.5 py-3">
-        {/* Title row — reserves right space when actions exist so text truncates before the icon pill */}
-        <div className={cn("min-w-0 overflow-hidden", hasActions && "pr-14")}>
+        {/* Title row — full width */}
+        <div className="min-w-0 overflow-hidden">
           <h3
-            className="line-clamp-2 text-sm font-semibold leading-5 tracking-normal"
+            className="truncate text-sm font-semibold leading-5 tracking-normal"
             title={job.title}
           >
             {job.title}
