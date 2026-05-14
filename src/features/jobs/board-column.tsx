@@ -37,7 +37,7 @@ export function BoardColumn({ column, columns, jobs, now, onSortChange, sort }: 
     <section
       aria-label={column.name}
       className={cn(
-        "flex h-full w-[19rem] max-w-[19rem] shrink-0 flex-col overflow-hidden rounded-lg border bg-card/85 transition-colors",
+        "flex h-full min-h-0 max-h-full w-[19rem] max-w-[19rem] shrink-0 flex-col overflow-hidden rounded-lg border bg-card/85 transition-colors",
         isOver && "border-primary/45 bg-primary/5",
       )}
       ref={setNodeRef}
@@ -70,19 +70,21 @@ export function BoardColumn({ column, columns, jobs, now, onSortChange, sort }: 
         <ColumnMenu column={column} columns={columns} jobCount={jobs.length} />
       </header>
       <SortableContext items={jobs.map((job) => job.id)} strategy={verticalListSortingStrategy}>
-        <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col gap-2 overflow-x-hidden overflow-y-auto p-2.5 [scrollbar-width:thin]">
-          {jobs.map((job) => (
-            <JobCard job={job} key={job.id} now={now} />
-          ))}
-          {jobs.length === 0 ? (
-            <div
-              aria-label={`${column.name} drop zone — empty`}
-              className="grid h-28 place-items-center rounded-md border border-dashed bg-background/55 px-5 text-center text-xs leading-5 text-muted-foreground"
-              role="region"
-            >
-              No jobs yet.
-            </div>
-          ) : null}
+        <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-2.5 [scrollbar-width:thin]">
+          <div className="flex min-w-0 flex-col gap-2">
+            {jobs.map((job) => (
+              <JobCard job={job} key={job.id} now={now} />
+            ))}
+            {jobs.length === 0 ? (
+              <div
+                aria-label={`${column.name} drop zone — empty`}
+                className="grid h-28 place-items-center rounded-md border border-dashed bg-background/55 px-5 text-center text-xs leading-5 text-muted-foreground"
+                role="region"
+              >
+                No jobs yet.
+              </div>
+            ) : null}
+          </div>
         </div>
       </SortableContext>
     </section>

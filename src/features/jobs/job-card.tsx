@@ -215,7 +215,7 @@ export function JobCard({ job, now }: JobCardProps) {
 
   return (
     <div
-      className="w-full max-w-full min-w-0 overflow-hidden"
+      className="w-full max-w-full min-w-0 shrink-0 overflow-hidden"
       ref={setNodeRef}
       style={style}
       {...attributes}

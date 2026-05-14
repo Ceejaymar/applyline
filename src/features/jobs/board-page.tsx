@@ -102,7 +102,6 @@ export function BoardPage() {
   } = useBoardData();
   const activeJobId = useApplylineUiStore((state) => state.activeJobId);
   const columnSorts = useApplylineUiStore((state) => state.columnSorts);
-  const openCreate = useApplylineUiStore((state) => state.openCreate);
   const setColumnSort = useApplylineUiStore((state) => state.setColumnSort);
   const now = useNow();
   const [search, setSearch] = useState("");
@@ -219,7 +218,7 @@ export function BoardPage() {
   }
 
   return (
-    <div className="flex h-full flex-col gap-5">
+    <div className="flex h-[calc(100dvh-7rem)] min-h-0 max-h-[calc(100dvh-7rem)] flex-col gap-5 overflow-hidden">
       <BoardToolbar
         computedFilter={computedFilter}
         jobCount={filteredJobs.length}
@@ -257,7 +256,7 @@ export function BoardPage() {
           </div>
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col gap-5">
+        <div className="min-h-0 flex-1 overflow-hidden">
           <DndContext
             collisionDetection={closestCorners}
             onDragCancel={onDragCancel}
@@ -265,7 +264,7 @@ export function BoardPage() {
             onDragStart={onDragStart}
             sensors={sensors}
           >
-            <div className="flex min-h-0 min-w-0 flex-1 gap-3 overflow-x-auto pb-4 [scrollbar-width:thin]">
+            <div className="flex h-full min-h-0 min-w-0 items-stretch gap-3 overflow-x-auto overflow-y-hidden pb-4 [scrollbar-width:thin]">
               {columns.map((column) => (
                 <BoardColumn
                   column={column}
