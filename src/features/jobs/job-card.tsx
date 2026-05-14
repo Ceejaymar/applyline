@@ -86,17 +86,17 @@ export function JobCardSurface({
     >
       <div className={cn("absolute inset-x-0 top-0 h-0.5", topAccent)} />
 
-      {/* Action icons — top-right corner, hover-reveal */}
+      {/* Action icons — top-right corner, hover-reveal with frosted backdrop */}
       {hasActions && !isConfirmingDelete ? (
         <div
-          className="absolute right-2 top-2 flex items-center gap-0.5 opacity-0 pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto"
+          className="absolute right-2 top-2 flex items-center gap-px rounded-md border border-border/40 bg-card/80 px-0.5 py-0.5 opacity-0 backdrop-blur-sm pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto"
           onClick={(e) => e.stopPropagation()}
           onKeyDown={(e) => e.stopPropagation()}
         >
           {job.link ? (
             <button
               aria-label={`Open posting for ${job.title}`}
-              className="grid size-6 place-items-center rounded text-muted-foreground/60 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="grid size-7 place-items-center rounded text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               onClick={(e) => {
                 e.stopPropagation();
                 window.open(job.link, "_blank", "noopener,noreferrer");
@@ -105,13 +105,13 @@ export function JobCardSurface({
               title={`Open posting for ${job.title}`}
               type="button"
             >
-              <ExternalLink className="size-3.5" />
+              <ExternalLink className="size-4" />
             </button>
           ) : null}
           {onDelete ? (
             <button
               aria-label={`Delete ${job.title}`}
-              className="grid size-6 place-items-center rounded text-muted-foreground/60 transition-colors hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="grid size-7 place-items-center rounded text-muted-foreground/70 transition-colors hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               onClick={(e) => {
                 e.stopPropagation();
                 setIsConfirmingDelete(true);
@@ -120,16 +120,16 @@ export function JobCardSurface({
               title={`Delete ${job.title}`}
               type="button"
             >
-              <Trash2 className="size-3.5" />
+              <Trash2 className="size-4" />
             </button>
           ) : null}
         </div>
       ) : null}
 
-      {/* Delete confirmation — top-right corner */}
+      {/* Delete confirmation — top-right corner, same frosted pill */}
       {isConfirmingDelete ? (
         <div
-          className="absolute right-2 top-2 flex items-center gap-1"
+          className="absolute right-2 top-2 flex items-center gap-1 rounded-md border border-border/40 bg-card/80 px-1.5 py-1 backdrop-blur-sm"
           onClick={(e) => e.stopPropagation()}
           onKeyDown={(e) => e.stopPropagation()}
         >
@@ -139,7 +139,7 @@ export function JobCardSurface({
             onClick={(e) => { e.stopPropagation(); setIsConfirmingDelete(false); }}
             type="button"
           >
-            <X className="size-3" />
+            <X className="size-3.5" />
           </button>
           <button
             aria-label="Confirm delete"
@@ -153,8 +153,8 @@ export function JobCardSurface({
       ) : null}
 
       <div className="px-3.5 py-3">
-        {/* Title row — full width */}
-        <div className="min-w-0 overflow-hidden">
+        {/* Title row — reserves right space when actions exist so text truncates before the icon pill */}
+        <div className={cn("min-w-0 overflow-hidden", hasActions && "pr-14")}>
           <h3
             className="max-w-full truncate text-sm font-semibold leading-5 tracking-normal"
             title={job.title}
