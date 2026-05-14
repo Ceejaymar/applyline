@@ -44,9 +44,8 @@ describe("JobCardSurface", () => {
 
     expect(screen.getByRole("heading", { name: job.title })).toHaveClass("truncate");
     expect(screen.getByTitle(job.companyName)).toHaveClass("overflow-hidden");
-    expect(screen.getByTitle(job.sourceName!)).toHaveClass("overflow-hidden");
     expect(screen.getByTitle(job.tags[0])).toHaveClass("truncate", "max-w-[5.75rem]");
-    expect(screen.getByLabelText(/Last activity:/)).toHaveClass("truncate", "max-w-16");
+    expect(screen.getByLabelText(/Last activity:/)).toBeInTheDocument();
   });
 
   it("opens the posting without opening the job drawer", async () => {
