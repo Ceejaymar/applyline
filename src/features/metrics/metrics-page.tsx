@@ -87,7 +87,7 @@ function Panel({
   title: string;
 }) {
   return (
-    <section className="grid gap-4 rounded-lg border bg-card p-4 shadow-[0_16px_36px_-34px_hsl(var(--foreground)/0.55)]">
+    <section className="grid gap-4 rounded-lg border bg-card p-4 shadow-[0_10px_28px_-24px_hsl(var(--foreground)/0.6)]">
       <div className="flex items-center gap-2">
         <span className="grid size-8 place-items-center rounded-md bg-secondary text-muted-foreground">
           <Icon className="size-4" />
@@ -141,7 +141,7 @@ function PipelinePanel({ metrics }: { metrics: MetricsSummary }) {
   const noApplied = metrics.appliedJobCount === 0;
 
   return (
-    <section className="grid gap-4 rounded-lg border bg-card p-4 shadow-[0_16px_36px_-34px_hsl(var(--foreground)/0.55)]">
+    <section className="grid gap-4 rounded-lg border bg-card p-4 shadow-[0_10px_28px_-24px_hsl(var(--foreground)/0.6)]">
       <div className="flex items-center gap-2">
         <span className="grid size-8 place-items-center rounded-md bg-secondary text-muted-foreground">
           <TrendingUp className="size-4" />
@@ -183,16 +183,10 @@ function ActivityPanel({ metrics }: { metrics: MetricsSummary }) {
   ];
 
   return (
-    <section className="rounded-lg border bg-card p-4 shadow-[0_16px_36px_-34px_hsl(var(--foreground)/0.55)]">
-      <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
-        {stats.map((stat, i) => (
-          <div
-            className={cn(
-              "grid gap-1",
-              i > 0 && "sm:border-l sm:pl-4",
-            )}
-            key={stat.label}
-          >
+    <section className="rounded-lg border bg-card p-4 shadow-[0_10px_28px_-24px_hsl(var(--foreground)/0.6)]">
+      <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+        {stats.map((stat) => (
+          <div className="grid gap-0.5" key={stat.label}>
             <p className="text-xs text-muted-foreground">{stat.label}</p>
             <p className="text-xl font-semibold tabular-nums">{stat.value}</p>
           </div>
@@ -290,7 +284,7 @@ export function MetricsPage() {
     <div className="grid gap-5">
       <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-end">
         <div>
-          <h1 className="text-2xl font-semibold tracking-normal">Metrics</h1>
+          <h1 className="text-lg font-semibold tracking-normal">Metrics</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             How your job search is moving.
           </p>
