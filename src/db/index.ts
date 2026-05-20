@@ -24,4 +24,4 @@ export {
   deleteJobPermanently,
   deleteJob,
 } from "./repositories/jobs";
-export { createSource } from "./repositories/sources";
+export { createSource, findOrCreateSourceByName } from "./repositories/sources";

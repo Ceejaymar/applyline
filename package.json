@@ -5,8 +5,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:extension": "npm --prefix extension run build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
+    "typecheck:extension": "npm --prefix extension run typecheck",
     "lint": "next lint",
     "test": "vitest",
     "test:run": "vitest run"

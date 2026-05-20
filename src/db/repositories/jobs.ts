@@ -15,7 +15,11 @@ import { initializeDatabase } from "../seed";
 import { createId, nowIso, sortJobsForPersistence } from "../utils";
 import { findOrCreateCompanyByName } from "./companies";
 
-export async function createJob(input: CreateJobInput) {
+type CreateJobOptions = {
+  activityMessage?: string;
+};
+
+export async function createJob(input: CreateJobInput, options: CreateJobOptions = {}) {
   await initializeDatabase();
 
   const parsedInput = createJobSchema.parse(input);
@@ -65,7 +69,7 @@ export async function createJob(input: CreateJobInput) {
         id: createId("activity"),
         jobId: job.id,
         type: "created",
-        message: `Created ${job.title}.`,
+        message: options.activityMessage ?? `Created ${job.title}.`,
         toColumnId: job.columnId,
         createdAt: nowIso(),
       }),

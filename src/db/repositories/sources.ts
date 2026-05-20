@@ -38,3 +38,7 @@ export async function createSource(input: CreateSourceInput) {
   await db.sources.add(source);
   return source;
 }
+
+export async function findOrCreateSourceByName(name: string) {
+  return createSource({ name, icon: "circle-help" });
+}
