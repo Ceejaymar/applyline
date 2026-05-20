@@ -8,6 +8,14 @@ type ChromeMessageSender = {
   tab?: ChromeTab;
 };
 
+interface ImportMetaEnv {
+  readonly DEV: boolean;
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
+
 declare const chrome: {
   action: {
     onClicked: {

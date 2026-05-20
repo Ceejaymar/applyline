@@ -1,6 +1,6 @@
 import { type ApplylineJobDraft, type ApplylineTarget, type SaveDraftMessage } from "./shared/job-draft";
 
-const DEFAULT_TARGET: ApplylineTarget = "local";
+const DEFAULT_TARGET: ApplylineTarget = "production";
 const DRAFT_STORAGE_PREFIX = "applylineDraft:";
 const APPLYLINE_ORIGINS: Record<ApplylineTarget, string> = {
   local: "http://localhost:3000",
@@ -87,12 +87,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     try {
       const baseUrl = await getTargetBaseUrl(message.target);
       const draftId = createDraftId();
+      const storedDraft = message.draft;
+
+      if (import.meta.env.DEV) {
+        console.info("[Applyline Clipper] storing draft", {
+          companyName: storedDraft.companyName,
+          descriptionLength: storedDraft.description?.length ?? 0,
+          draftId,
+          target: message.target,
+          title: storedDraft.title,
+        });
+      }
 
       await chrome.storage.local.set({
         applylineTarget: message.target,
         [draftStorageKey(draftId)]: {
           createdAt: new Date().toISOString(),
-          draft: message.draft,
+          draft: storedDraft,
         },
       });
       await openOrFocusCapturePage(baseUrl, draftId, sender.tab);
