@@ -30,6 +30,47 @@ npm test            # Vitest in watch mode
 npm run test:run    # Vitest single run
 ```
 
+## Chrome extension MVP
+
+The local Chrome extension lives in `extension/` and is intended for unpacked development testing only.
+
+See `extension/README.md` for the full developer guide, security notes, and known limitations.
+
+Build the extension:
+
+```bash
+cd extension
+npm install
+npm run build
+# or from the repo root:
+npm run build:extension
+```
+
+Load it in Chrome:
+
+1. Open `chrome://extensions`.
+2. Enable **Developer mode**.
+3. Click **Load unpacked**.
+4. Select `extension/dist`.
+5. Pin **Applyline Clipper** if you want quick toolbar access.
+
+Test with localhost:
+
+1. In the repo root, run `npm run dev`.
+2. Visit any job posting page in Chrome.
+3. Click the Applyline extension icon.
+4. Confirm the overlay fields, choose **Localhost**, then click **Save to Applyline**.
+5. Chrome opens `http://localhost:3000/capture`, which validates the draft and saves it into Applyline's IndexedDB for that browser profile.
+
+Test with production:
+
+1. Visit any job posting page in Chrome.
+2. Click the Applyline extension icon.
+3. Choose **applyline.vercel.app**, then click **Save to Applyline**.
+4. Chrome opens `https://applyline.vercel.app/capture` and saves into that origin's IndexedDB.
+
+The extension uses Manifest V3 with `activeTab` and `scripting`, so page extraction only runs after you click the toolbar icon.
+
 ## How data persistence works
 
 All data lives in your browser's **IndexedDB** via [Dexie.js](https://dexie.org). There is no backend or cloud storage.
@@ -82,6 +123,11 @@ src/
 │   └── backup.ts         # Export/import serialisation
 └── store/
     └── applyline-ui-store.ts  # Zustand store (active job, dialog state)
+extension/
+├── manifest.json         # Manifest V3 config for local unpacked testing
+├── src/background.ts     # Toolbar click injection + Applyline handoff
+├── src/content/          # Overlay UI and page extraction
+└── src/shared/           # Draft types and source detection
 ```
 
 ## Running the tests

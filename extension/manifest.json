@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Applyline Clipper",
+  "version": "0.1.0",
+  "description": "Save job postings to Applyline.",
+  "permissions": ["activeTab", "scripting", "storage", "tabs"],
+  "host_permissions": ["https://applyline.vercel.app/*", "http://localhost:3000/*"],
+  "action": {
+    "default_title": "Save to Applyline"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://applyline.vercel.app/capture*",
+        "http://localhost:3000/capture*"
+      ],
+      "js": ["content/capture-bridge.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
