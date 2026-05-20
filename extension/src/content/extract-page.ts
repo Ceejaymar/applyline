@@ -1,4 +1,11 @@
-import { cleanText, truncateText, type ApplylineJobDraft } from "../shared/job-draft";
+import {
+  cleanInlineText,
+  cleanMultilineText,
+  truncateText,
+  type ApplylineJobDraft,
+} from "../shared/job-draft";
+
+const DESCRIPTION_LIMIT = 50_000;
 
 export type JobDraft = {
   title: string;
@@ -14,13 +21,9 @@ export type JobDraft = {
   extractionConfidence: "high" | "medium" | "low";
 };
 
-type JsonLdValue =
-  | string
-  | string[]
-  | number
-  | { [key: string]: unknown; name?: unknown }
-  | null
-  | undefined;
+type JsonLdObject = { [key: string]: unknown; name?: unknown; text?: unknown };
+
+type JsonLdValue = string | string[] | number | JsonLdObject | null | undefined;
 
 type JobPostingJsonLd = {
   "@type"?: string | string[];
@@ -102,26 +105,37 @@ function getMetaContent(...selectors: string[]) {
   for (const selector of selectors) {
     const content = document.querySelector<HTMLMetaElement>(selector)?.content;
 
-    if (cleanText(content)) {
-      return cleanText(content);
+    if (cleanInlineText(content)) {
+      return cleanInlineText(content);
     }
   }
 
   return "";
 }
 
-function getVisibleText(element?: Element | null) {
+function isVisibleElement(element?: Element | null): element is HTMLElement {
   if (!element || !(element instanceof HTMLElement)) {
-    return "";
+    return false;
   }
 
   const style = window.getComputedStyle(element);
+  return style.display !== "none" && style.visibility !== "hidden";
+}
 
-  if (style.display === "none" || style.visibility === "hidden") {
+function getVisibleText(element?: Element | null) {
+  if (!isVisibleElement(element)) {
     return "";
   }
 
-  return cleanText(element.innerText || element.textContent);
+  return cleanInlineText(element.innerText || element.textContent);
+}
+
+function getVisibleMultilineText(element?: Element | null) {
+  if (!isVisibleElement(element)) {
+    return "";
+  }
+
+  return cleanMultilineText(element.innerText || element.textContent);
 }
 
 function getTextFromSelectors(selectors: string[], maxLength = 240) {
@@ -146,11 +160,22 @@ function normalizeHtmlToText(value: string) {
     element.remove();
   }
 
-  return cleanText(template.content.textContent);
+  for (const element of Array.from(
+    template.content.querySelectorAll("br, p, li, h1, h2, h3, h4, h5, h6, section, article, div"),
+  )) {
+    const tagName = element.tagName.toLocaleLowerCase();
+    element.append(document.createTextNode(tagName === "br" || tagName === "li" ? "\n" : "\n\n"));
+  }
+
+  return cleanMultilineText(template.content.textContent);
 }
 
 function stripHtml(value: string) {
-  return /<\/?[a-z][\s\S]*>/i.test(value) ? normalizeHtmlToText(value) : cleanText(value);
+  return /<\/?[a-z][\s\S]*>/i.test(value) ? normalizeHtmlToText(value) : cleanInlineText(value);
+}
+
+function stripHtmlMultiline(value: string) {
+  return /<\/?[a-z][\s\S]*>/i.test(value) ? normalizeHtmlToText(value) : cleanMultilineText(value);
 }
 
 function flattenJsonLd(value: unknown): unknown[] {
@@ -215,7 +240,7 @@ function stringifyJsonLdValue(value: JsonLdValue): string {
   }
 
   if (Array.isArray(value)) {
-    return cleanText(value.map(stringifyJsonLdValue).filter(Boolean).join(", "));
+    return cleanInlineText(value.map(stringifyJsonLdValue).filter(Boolean).join(", "));
   }
 
   if (typeof value === "object") {
@@ -229,6 +254,14 @@ function stringifyJsonLdValue(value: JsonLdValue): string {
   }
 
   return "";
+}
+
+function stringifyJsonLdMultilineValue(value: JsonLdValue): string {
+  if (typeof value === "string") {
+    return stripHtmlMultiline(value);
+  }
+
+  return stringifyJsonLdValue(value);
 }
 
 function getCompanyFromJsonLd(value: JsonLdValue) {
@@ -252,7 +285,7 @@ function getLocationFromJsonLd(value: JobPostingJsonLd["jobLocation"] | JobPosti
       }
 
       if (Array.isArray(location)) {
-        return cleanText(location.map(stringifyJsonLdValue).filter(Boolean).join(", "));
+        return cleanInlineText(location.map(stringifyJsonLdValue).filter(Boolean).join(", "));
       }
 
       if (typeof location !== "object") {
@@ -277,11 +310,11 @@ function getLocationFromJsonLd(value: JobPostingJsonLd["jobLocation"] | JobPosti
         })
         .filter(Boolean);
 
-      return cleanText(addressParts.join(", "));
+      return cleanInlineText(addressParts.join(", "));
     })
     .filter(Boolean);
 
-  return cleanText(Array.from(new Set(labels)).join(" / "));
+  return cleanInlineText(Array.from(new Set(labels)).join(" / "));
 }
 
 function formatCurrency(value: number | string | undefined, currency?: string) {
@@ -292,7 +325,7 @@ function formatCurrency(value: number | string | undefined, currency?: string) {
   const numericValue = typeof value === "number" ? value : Number(String(value).replace(/,/g, ""));
 
   if (!Number.isFinite(numericValue)) {
-    return cleanText(`${currency ?? ""} ${value}`);
+    return cleanInlineText(`${currency ?? ""} ${value}`);
   }
 
   const rounded = Number.isInteger(numericValue) ? numericValue : Number(numericValue.toFixed(2));
@@ -302,7 +335,7 @@ function formatCurrency(value: number | string | undefined, currency?: string) {
     return `$${formatted}`;
   }
 
-  return cleanText(`${currency ?? ""} ${formatted}`);
+  return cleanInlineText(`${currency ?? ""} ${formatted}`);
 }
 
 function formatSalaryFromJsonLd(value: unknown): string {
@@ -334,12 +367,12 @@ function formatSalaryFromJsonLd(value: unknown): string {
   const unit = (salary.value?.unitText ?? salary.unitText)?.toLocaleLowerCase();
 
   if (single !== undefined) {
-    return cleanText(`${formatCurrency(single, currency)}${unit ? ` / ${unit}` : ""}`);
+    return cleanInlineText(`${formatCurrency(single, currency)}${unit ? ` / ${unit}` : ""}`);
   }
 
   const range = [formatCurrency(min, currency), formatCurrency(max, currency)].filter(Boolean).join(" - ");
 
-  return cleanText(`${range}${range && unit ? ` / ${unit}` : ""}`);
+  return cleanInlineText(`${range}${range && unit ? ` / ${unit}` : ""}`);
 }
 
 function getMetaTitle() {
@@ -349,7 +382,7 @@ function getMetaTitle() {
 function splitTitleAndCompany(title: string) {
   const parts = title
     .split(/\s(?:[-|–—•]|at)\s/i)
-    .map(cleanText)
+    .map(cleanInlineText)
     .filter(Boolean);
 
   return {
@@ -360,7 +393,7 @@ function splitTitleAndCompany(title: string) {
 
 function getNearbyTextLines(titleElement: HTMLElement | null) {
   const container = titleElement?.closest("section, article, header, main, div") ?? titleElement?.parentElement;
-  const text = getVisibleText(container);
+  const text = getVisibleMultilineText(container);
 
   if (!text) {
     return [];
@@ -370,7 +403,7 @@ function getNearbyTextLines(titleElement: HTMLElement | null) {
 
   return text
     .split(/\n+/)
-    .map(cleanText)
+    .map(cleanInlineText)
     .filter((line) => line && line !== title)
     .slice(0, 8);
 }
@@ -405,21 +438,23 @@ function getDomHeuristics(titleFromEarlier: string) {
 }
 
 function getDescriptionFromDom() {
+  const candidates: string[] = [];
+
   for (const selector of DESCRIPTION_SELECTORS) {
     for (const element of Array.from(document.querySelectorAll(selector))) {
-      const text = getVisibleText(element);
+      const text = getVisibleMultilineText(element);
 
       if (text.length >= 80) {
-        return truncateText(text, 4000) ?? "";
+        candidates.push(text);
       }
     }
   }
 
-  return "";
+  return [...candidates].sort((a, b) => b.length - a.length)[0] ?? "";
 }
 
 function getSalaryFromText(value: string) {
-  const compactText = cleanText(value);
+  const compactText = cleanInlineText(value);
   const money = String.raw`\$\s?\d{2,3}(?:,\d{3})*(?:\.\d{1,2})?(?:\s?[kK])?`;
   const hourly = String.raw`\$\s?\d{2,3}(?:\.\d{1,2})?\s?(?:\/|per\s?)\s?(?:hr|hour)`;
   const salaryRegex = new RegExp(
@@ -428,7 +463,7 @@ function getSalaryFromText(value: string) {
   );
   const match = compactText.match(salaryRegex)?.[0];
 
-  return match ? cleanText(match.replace(/\s+/g, " ")) : "";
+  return match ? cleanInlineText(match.replace(/\s+/g, " ")) : "";
 }
 
 function getWorkplaceType(value: string): JobDraft["workplaceType"] {
@@ -499,7 +534,7 @@ export function extractJobDraftFromPage(): JobDraft {
   const jsonLd = getJobPostingJsonLd();
   const metaTitle = getMetaTitle();
   const parsedMetaTitle = splitTitleAndCompany(metaTitle);
-  const structuredDescription = stringifyJsonLdValue(jsonLd?.description);
+  const structuredDescription = stringifyJsonLdMultilineValue(jsonLd?.description);
   const metaDescription = getMetaContent(
     'meta[name="description"]',
     'meta[property="og:description"]',
@@ -551,7 +586,7 @@ export function extractJobDraftFromPage(): JobDraft {
     location: truncateText(location, 180),
     workplaceType,
     compensation: truncateText(compensation, 180),
-    description: truncateText(description, 4000),
+    description: truncateText(description, DESCRIPTION_LIMIT),
     tags: [],
     extractedAt: new Date().toISOString(),
     extractionConfidence,

@@ -4,7 +4,8 @@ import { createRoot } from "react-dom/client";
 import { extractJobDraft } from "./extract-page";
 import {
   APPLYLINE_ORIGINS,
-  cleanText,
+  cleanInlineText,
+  cleanMultilineText,
   type ApplylineJobDraft,
   type ApplylineTarget,
   type SaveDraftMessage,
@@ -27,7 +28,12 @@ const SOURCE_OPTIONS = [
 ];
 
 function emptyToUndefined(value: string) {
-  const clean = cleanText(value);
+  const clean = cleanInlineText(value);
+  return clean ? clean : undefined;
+}
+
+function multilineEmptyToUndefined(value: string) {
+  const clean = cleanMultilineText(value);
   return clean ? clean : undefined;
 }
 
@@ -36,23 +42,27 @@ function parseTags(value: string) {
     new Set(
       value
         .split(",")
-        .map(cleanText)
+        .map(cleanInlineText)
         .filter(Boolean),
     ),
   );
 }
 
 function normalizeDraft(draft: ApplylineJobDraft, tagsText: string): ApplylineJobDraft {
+  const timestamp = new Date().toISOString();
+
   return {
     ...draft,
-    title: cleanText(draft.title),
-    companyName: cleanText(draft.companyName),
-    link: cleanText(draft.link),
+    title: cleanInlineText(draft.title),
+    companyName: cleanInlineText(draft.companyName),
+    link: cleanInlineText(draft.link),
     location: emptyToUndefined(draft.location ?? ""),
     compensation: emptyToUndefined(draft.compensation ?? ""),
-    description: emptyToUndefined(draft.description ?? ""),
-    notes: emptyToUndefined(draft.notes ?? ""),
+    description: multilineEmptyToUndefined(draft.description ?? ""),
+    notes: multilineEmptyToUndefined(draft.notes ?? ""),
     tags: parseTags(tagsText),
+    clientEditedAt: timestamp,
+    updatedAt: timestamp,
   };
 }
 
@@ -78,10 +88,10 @@ function App({ initialDraft, onClose }: { initialDraft: ApplylineJobDraft; onClo
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const [draft, setDraft] = useState(initialDraft);
   const [tagsText, setTagsText] = useState(initialDraft.tags?.join(", ") ?? "");
-  const [target, setTarget] = useState<ApplylineTarget>("local");
+  const [target, setTarget] = useState<ApplylineTarget>("production");
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [error, setError] = useState("");
-  const canSave = Boolean(cleanText(draft.title) && cleanText(draft.companyName) && cleanText(draft.link));
+  const canSave = Boolean(cleanInlineText(draft.title) && cleanInlineText(draft.companyName));
   const targetLabel = useMemo(() => APPLYLINE_ORIGINS[target].replace(/^https?:\/\//, ""), [target]);
   const sourceLabel = draft.sourceName || "Current page";
   const confidence = draft.extractionConfidence === "high" ? "Detected" : "Needs review";
@@ -123,6 +133,11 @@ function App({ initialDraft, onClose }: { initialDraft: ApplylineJobDraft; onClo
     window.open(APPLYLINE_ORIGINS[target], "_blank", "noopener,noreferrer");
   }
 
+  function updateTarget(nextTarget: ApplylineTarget) {
+    setTarget(nextTarget);
+    void chrome.storage.local.set({ applylineTarget: nextTarget });
+  }
+
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -132,7 +147,7 @@ function App({ initialDraft, onClose }: { initialDraft: ApplylineJobDraft; onClo
       return;
     }
 
-    if (!URL.canParse(draft.link)) {
+    if (draft.link && !URL.canParse(draft.link)) {
       setError("Enter a valid job URL.");
       setSaveState("error");
       return;
@@ -141,9 +156,10 @@ function App({ initialDraft, onClose }: { initialDraft: ApplylineJobDraft; onClo
     setSaveState("saving");
     setError("");
 
+    const normalizedDraft = normalizeDraft(draft, tagsText);
     const message: SaveDraftMessage = {
       type: "APPLYLINE_SAVE_DRAFT",
-      draft: normalizeDraft(draft, tagsText),
+      draft: normalizedDraft,
       target,
     };
 
@@ -212,7 +228,6 @@ function App({ initialDraft, onClose }: { initialDraft: ApplylineJobDraft; onClo
             id={`${formId}-link`}
             onChange={(event) => setDraft((value) => ({ ...value, link: event.target.value }))}
             placeholder="https://..."
-            required
             type="url"
             value={draft.link}
           />
@@ -286,7 +301,7 @@ function App({ initialDraft, onClose }: { initialDraft: ApplylineJobDraft; onClo
         </Field>
 
         <Field id={`${formId}-target`} label="Save target">
-          <select id={`${formId}-target`} onChange={(event) => setTarget(event.target.value as ApplylineTarget)} value={target}>
+          <select id={`${formId}-target`} onChange={(event) => updateTarget(event.target.value as ApplylineTarget)} value={target}>
             <option value="production">Production: https://applyline.vercel.app</option>
             <option value="local">Local: http://localhost:3000</option>
           </select>

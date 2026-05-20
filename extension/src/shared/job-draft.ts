@@ -14,6 +14,8 @@ export type ApplylineJobDraft = {
   notes?: string;
   tags?: string[];
   capturedAt: string;
+  clientEditedAt?: string;
+  updatedAt?: string;
 };
 
 export type SaveDraftMessage = {
@@ -32,7 +34,22 @@ export const APPLYLINE_ORIGINS: Record<ApplylineTarget, string> = {
 };
 
 export function cleanText(value?: string | null) {
+  return cleanInlineText(value);
+}
+
+export function cleanInlineText(value?: string | null) {
   return (value ?? "").replace(/\s+/g, " ").trim();
+}
+
+export function cleanMultilineText(value?: string | null) {
+  return (value ?? "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[\t\f\v ]+/g, " ")
+    .split("\n")
+    .map((line) => line.trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 export function truncateText(value: string | undefined, maxLength: number) {
