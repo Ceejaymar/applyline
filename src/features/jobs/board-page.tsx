@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   closestCorners,
   DndContext,
@@ -14,7 +14,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { Plus } from "lucide-react";
+import { CheckCircle2, Plus, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { AddJobDialog } from "@/features/jobs/add-job-dialog";
@@ -88,6 +88,11 @@ type PendingMove = {
   targetIndex: number;
 };
 
+type BoardToast = {
+  message: string;
+  type: "success";
+};
+
 export function BoardPage() {
   const {
     activities,
@@ -111,6 +116,7 @@ export function BoardPage() {
   const [activeDragJobId, setActiveDragJobId] = useState<string | null>(null);
   const [isCreatingColumn, setIsCreatingColumn] = useState(false);
   const [pendingArchiveMove, setPendingArchiveMove] = useState<PendingMove | null>(null);
+  const [toast, setToast] = useState<BoardToast | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -141,6 +147,35 @@ export function BoardPage() {
   }, [computedFilter, jobs, search, selectedSource, selectedTag]);
   const activeJob = jobs.find((job) => job.id === activeJobId) ?? null;
   const activeDragJob = jobs.find((job) => job.id === activeDragJobId) ?? null;
+
+  useEffect(() => {
+    const rawToast = sessionStorage.getItem("applyline:toast");
+
+    if (!rawToast) {
+      return;
+    }
+
+    sessionStorage.removeItem("applyline:toast");
+
+    try {
+      const parsedToast = JSON.parse(rawToast) as Partial<BoardToast>;
+
+      if (parsedToast.type === "success" && parsedToast.message) {
+        setToast({ type: "success", message: parsedToast.message });
+      }
+    } catch {
+      return;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!toast) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => setToast(null), 5000);
+    return () => window.clearTimeout(timeoutId);
+  }, [toast]);
 
   function onDragStart(event: DragStartEvent) {
     setActiveDragJobId(event.active.id.toString());
@@ -219,6 +254,23 @@ export function BoardPage() {
 
   return (
     <div className="flex h-[calc(100dvh-7rem)] min-h-0 max-h-[calc(100dvh-7rem)] flex-col gap-5 overflow-hidden">
+      {toast ? (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-primary shadow-sm">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="size-4" />
+            <span className="font-medium">{toast.message}</span>
+          </div>
+          <Button
+            aria-label="Dismiss notification"
+            className="size-7 text-primary hover:bg-primary/10"
+            onClick={() => setToast(null)}
+            size="icon"
+            variant="ghost"
+          >
+            <X />
+          </Button>
+        </div>
+      ) : null}
       <BoardToolbar
         computedFilter={computedFilter}
         jobCount={filteredJobs.length}

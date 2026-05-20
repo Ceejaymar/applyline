@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { CheckCircle2, Loader2, Pencil, Plus, Save, TriangleAlert, X } from "lucide-react";
 import { z } from "zod";
@@ -20,6 +21,8 @@ import {
 } from "@/lib/schemas";
 import { useBoardData, type BoardJob } from "@/lib/use-jobs";
 import { cn } from "@/lib/utils";
+
+const DESCRIPTION_LIMIT = 50_000;
 
 const extensionMessageSchema = z.object({
   source: z.literal("applyline-extension"),
@@ -46,8 +49,8 @@ const captureDraftSchema = z
     roleType: roleTypeSchema.optional(),
     workplaceType: z.enum(["remote", "hybrid", "onsite", "unknown"]).optional(),
     compensation: z.string().trim().max(240).optional(),
-    description: z.string().trim().max(8000).optional(),
-    notes: z.string().trim().max(8000).optional(),
+    description: z.string().trim().max(DESCRIPTION_LIMIT).optional(),
+    notes: z.string().trim().max(DESCRIPTION_LIMIT).optional(),
     tags: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
     capturedAt: z.string().datetime().optional(),
     extractedAt: z.string().datetime().optional(),
@@ -231,6 +234,32 @@ function postBridgeMessage(type: "APPLYLINE_CAPTURE_RECEIVED" | "APPLYLINE_CAPTU
   );
 }
 
+function getDraftStringLength(draft: unknown, field: string) {
+  if (!draft || typeof draft !== "object" || !(field in draft)) {
+    return undefined;
+  }
+
+  const value = (draft as Record<string, unknown>)[field];
+  return typeof value === "string" ? value.length : undefined;
+}
+
+function formatZodIssues(error: z.ZodError, draft?: unknown) {
+  return error.issues
+    .map((issue) => {
+      const field = issue.path.join(".") || "draft";
+      const fieldLength = getDraftStringLength(draft, field);
+      const suffix =
+        field === "description" && issue.code === "too_big"
+          ? ` Description length is ${fieldLength ?? "over the limit"}; maximum is ${DESCRIPTION_LIMIT} characters.`
+          : field === "url" || field === "link"
+            ? " Check that the URL is valid, or leave it blank."
+            : "";
+
+      return `${field}: ${issue.message}.${suffix}`;
+    })
+    .join(" ");
+}
+
 function Field({ label, value }: { label: string; value?: string }) {
   return (
     <div className="grid gap-1">
@@ -290,6 +319,7 @@ function DuplicateWarning({
 }
 
 export function CapturePageClient() {
+  const router = useRouter();
   const { columns, error: boardError, isLoading, jobs, sources } = useBoardData();
   const [mode, setMode] = useState<CaptureMode>("waiting");
   const [message, setMessage] = useState("Waiting for a job draft from the extension.");
@@ -336,7 +366,7 @@ export function CapturePageClient() {
       setMode("error");
       setMessage(
         error instanceof z.ZodError ?
-          error.issues.map((issue) => issue.message).join(" ")
+          formatZodIssues(error)
         : error instanceof Error ? error.message
         : "The job draft could not be read.",
       );
@@ -359,7 +389,9 @@ export function CapturePageClient() {
         if (missingDraftMessage.success) {
           setActiveDraftId(missingDraftMessage.data.draftId);
           setMode("error");
-          setMessage("The extension draft could not be found. Try capturing the job again.");
+          setMessage(
+            `The extension draft "${missingDraftMessage.data.draftId}" could not be found. Rebuild/reload the extension, then try capturing the job again.`,
+          );
         }
 
         return;
@@ -369,7 +401,7 @@ export function CapturePageClient() {
 
       if (!parsedDraft.success) {
         setMode("error");
-        setMessage(parsedDraft.error.issues.map((issue) => issue.message).join(" "));
+        setMessage(formatZodIssues(parsedDraft.error, parsedMessage.data.draft));
         return;
       }
 
@@ -463,6 +495,12 @@ export function CapturePageClient() {
       if (activeDraftId) {
         postBridgeMessage("APPLYLINE_CAPTURE_SAVED", activeDraftId);
       }
+
+      sessionStorage.setItem(
+        "applyline:toast",
+        JSON.stringify({ type: "success", message: "Job added to Applyline" }),
+      );
+      router.replace("/");
     } catch (error) {
       setMode("error");
       setMessage(error instanceof Error ? error.message : "The job could not be saved.");
