@@ -11,6 +11,7 @@ import {
   useSensors,
   type DragCancelEvent,
   type DragEndEvent,
+  type DragOverEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
@@ -88,10 +89,47 @@ type PendingMove = {
   targetIndex: number;
 };
 
+type DropPreview = {
+  columnId: string;
+  index: number;
+};
+
 type BoardToast = {
   message: string;
   type: "success";
 };
+
+function getDropPreview({
+  activeJob,
+  allJobs,
+  columnSorts,
+  overId,
+}: {
+  activeJob: BoardJob;
+  allJobs: BoardJob[];
+  columnSorts: Record<string, JobSortMode>;
+  overId: string;
+}): DropPreview | null {
+  const overJob = allJobs.find((job) => job.id === overId);
+  const targetColumnId = overId.startsWith("column:")
+    ? overId.replace("column:", "")
+    : overJob?.columnId;
+
+  if (!targetColumnId || targetColumnId === activeJob.columnId) {
+    return null;
+  }
+
+  return {
+    columnId: targetColumnId,
+    index: getTargetIndex({
+      activeJob,
+      allJobs,
+      columnSorts,
+      overId,
+      targetColumnId,
+    }),
+  };
+}
 
 export function BoardPage() {
   const {
@@ -114,6 +152,7 @@ export function BoardPage() {
   const [selectedSource, setSelectedSource] = useState("");
   const [computedFilter, setComputedFilter] = useState("");
   const [activeDragJobId, setActiveDragJobId] = useState<string | null>(null);
+  const [dropPreview, setDropPreview] = useState<DropPreview | null>(null);
   const [isCreatingColumn, setIsCreatingColumn] = useState(false);
   const [pendingArchiveMove, setPendingArchiveMove] = useState<PendingMove | null>(null);
   const [toast, setToast] = useState<BoardToast | null>(null);
@@ -179,23 +218,53 @@ export function BoardPage() {
 
   function onDragStart(event: DragStartEvent) {
     setActiveDragJobId(event.active.id.toString());
+    setDropPreview(null);
   }
 
   function onDragCancel(_event: DragCancelEvent) {
     setActiveDragJobId(null);
+    setDropPreview(null);
   }
 
-  async function onDragEnd(event: DragEndEvent) {
+  function onDragOver(event: DragOverEvent) {
     const { active, over } = event;
-    setActiveDragJobId(null);
 
     if (!over) {
+      setDropPreview(null);
       return;
     }
 
     const activeJob = jobs.find((job) => job.id === active.id);
 
     if (!activeJob) {
+      setDropPreview(null);
+      return;
+    }
+
+    setDropPreview(
+      getDropPreview({
+        activeJob,
+        allJobs: filteredJobs,
+        columnSorts,
+        overId: over.id.toString(),
+      }),
+    );
+  }
+
+  async function onDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+
+    if (!over) {
+      setActiveDragJobId(null);
+      setDropPreview(null);
+      return;
+    }
+
+    const activeJob = jobs.find((job) => job.id === active.id);
+
+    if (!activeJob) {
+      setActiveDragJobId(null);
+      setDropPreview(null);
       return;
     }
 
@@ -206,6 +275,8 @@ export function BoardPage() {
       : overJob?.columnId;
 
     if (!targetColumnId) {
+      setActiveDragJobId(null);
+      setDropPreview(null);
       return;
     }
 
@@ -221,6 +292,8 @@ export function BoardPage() {
       targetColumnId === DEFAULT_COLUMN_IDS.archived &&
       activeJob.columnId !== DEFAULT_COLUMN_IDS.archived
     ) {
+      setActiveDragJobId(null);
+      setDropPreview(null);
       setPendingArchiveMove({
         jobId: activeJob.id,
         targetColumnId,
@@ -229,7 +302,12 @@ export function BoardPage() {
       return;
     }
 
-    await moveJobToColumn(activeJob.id, targetColumnId, { targetIndex });
+    try {
+      await moveJobToColumn(activeJob.id, targetColumnId, { targetIndex });
+    } finally {
+      setActiveDragJobId(null);
+      setDropPreview(null);
+    }
   }
 
   async function confirmArchiveMove(archivedReason?: ArchivedReason) {
@@ -313,23 +391,32 @@ export function BoardPage() {
             collisionDetection={closestCorners}
             onDragCancel={onDragCancel}
             onDragEnd={onDragEnd}
+            onDragOver={onDragOver}
             onDragStart={onDragStart}
             sensors={sensors}
           >
             <div className="flex h-full min-h-0 min-w-0 items-stretch gap-3 overflow-x-auto overflow-y-hidden pb-4 [scrollbar-width:thin]">
-              {columns.map((column) => (
-                <BoardColumn
-                  column={column}
-                  columns={columns}
-                  jobs={getColumnJobs(filteredJobs, column.id, getColumnSort(columnSorts, column.id))}
-                  key={column.id}
-                  now={now}
-                  onSortChange={setColumnSort}
-                  sort={getColumnSort(columnSorts, column.id)}
-                />
-              ))}
+              {columns.map((column) => {
+                const columnSort = getColumnSort(columnSorts, column.id);
+                const columnJobs = getColumnJobs(filteredJobs, column.id, columnSort);
+
+                return (
+                  <BoardColumn
+                    activeDragJobId={activeDragJobId}
+                    column={column}
+                    columns={columns}
+                    dropPreviewIndex={dropPreview?.columnId === column.id ? dropPreview.index : null}
+                    jobCount={columnJobs.length}
+                    jobs={columnJobs}
+                    key={column.id}
+                    now={now}
+                    onSortChange={setColumnSort}
+                    sort={columnSort}
+                  />
+                );
+              })}
             </div>
-            <DragOverlay>
+            <DragOverlay dropAnimation={null}>
               {activeDragJob ? <JobCardSurface isOverlay job={activeDragJob} now={now} /> : null}
             </DragOverlay>
           </DndContext>

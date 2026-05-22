@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { Plus } from "lucide-react";
@@ -18,13 +19,35 @@ import { useApplylineUiStore } from "@/store/applyline-ui-store";
 type BoardColumnProps = {
   column: Column;
   columns: Column[];
+  activeDragJobId?: string | null;
+  dropPreviewIndex?: number | null;
+  jobCount?: number;
   jobs: BoardJob[];
   now: Date;
   onSortChange: (columnId: string, sort: JobSortMode) => void;
   sort: JobSortMode;
 };
 
-export function BoardColumn({ column, columns, jobs, now, onSortChange, sort }: BoardColumnProps) {
+function DropPreviewCard() {
+  return (
+    <div
+      aria-hidden="true"
+      className="h-[5.75rem] rounded-md border border-dashed border-primary/45 bg-primary/[0.055] shadow-[inset_0_0_0_1px_hsl(var(--background)/0.65)] transition-[opacity,transform] duration-150 ease-out motion-reduce:transition-none"
+    />
+  );
+}
+
+export function BoardColumn({
+  column,
+  columns,
+  activeDragJobId,
+  dropPreviewIndex,
+  jobCount,
+  jobs,
+  now,
+  onSortChange,
+  sort,
+}: BoardColumnProps) {
   const openCreate = useApplylineUiStore((state) => state.openCreate);
   const { isOver, setNodeRef } = useDroppable({
     id: `column:${column.id}`,
@@ -32,6 +55,10 @@ export function BoardColumn({ column, columns, jobs, now, onSortChange, sort }: 
   });
   const Icon = getBoardIcon(column.icon);
   const tintClass = columnTint[column.color ?? ""] ?? columnTint.violet;
+  const normalizedDropPreviewIndex =
+    typeof dropPreviewIndex === "number"
+      ? Math.min(Math.max(dropPreviewIndex, 0), jobs.length)
+      : null;
 
   return (
     <section
@@ -50,7 +77,7 @@ export function BoardColumn({ column, columns, jobs, now, onSortChange, sort }: 
           {column.name}
         </h2>
         <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-          {jobs.length}
+          {jobCount ?? jobs.length}
         </span>
         <Button
           aria-label={`Add job to ${column.name}`}
@@ -72,12 +99,20 @@ export function BoardColumn({ column, columns, jobs, now, onSortChange, sort }: 
       <SortableContext items={jobs.map((job) => job.id)} strategy={verticalListSortingStrategy}>
         <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-2.5 [scrollbar-width:thin]">
           <div className="flex min-w-0 flex-col gap-2">
-            {jobs.map((job) => (
-              <JobCard job={job} key={job.id} now={now} />
+            {jobs.map((job, index) => (
+              <Fragment key={job.id}>
+                {normalizedDropPreviewIndex === index ? <DropPreviewCard /> : null}
+                <JobCard
+                  isDragSourceHidden={job.id === activeDragJobId}
+                  job={job}
+                  now={now}
+                />
+              </Fragment>
             ))}
-            {jobs.length === 0 ? (
+            {normalizedDropPreviewIndex === jobs.length ? <DropPreviewCard /> : null}
+            {jobs.length === 0 && normalizedDropPreviewIndex === null ? (
               <div
-                aria-label={`${column.name} drop zone — empty`}
+                aria-label={`${column.name} drop zone, empty`}
                 className="grid h-28 place-items-center rounded-md border border-dashed bg-background/55 px-5 text-center text-xs leading-5 text-muted-foreground"
                 role="region"
               >
