@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { useApplylineUiStore } from "@/store/applyline-ui-store";
 
 type JobCardProps = {
+  isDragSourceHidden?: boolean;
   job: BoardJob;
   now: Date;
 };
@@ -200,7 +201,7 @@ export function JobCardSurface({
   );
 }
 
-export function JobCard({ job, now }: JobCardProps) {
+export function JobCard({ isDragSourceHidden, job, now }: JobCardProps) {
   const openJob = useApplylineUiStore((state) => state.openJob);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({
@@ -215,7 +216,11 @@ export function JobCard({ job, now }: JobCardProps) {
 
   return (
     <div
-      className="w-full max-w-full min-w-0 shrink-0 overflow-hidden"
+      aria-hidden={isDragSourceHidden ? true : undefined}
+      className={cn(
+        "w-full max-w-full min-w-0 shrink-0 overflow-hidden transition-opacity duration-150 motion-reduce:transition-none",
+        isDragSourceHidden && "pointer-events-none opacity-0",
+      )}
       ref={setNodeRef}
       style={style}
       {...attributes}
