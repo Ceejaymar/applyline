@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import type { CreateJobInput, UpdateJobInput } from "@/lib/schemas";
-import { roleTypeSchema } from "@/lib/schemas";
+import { companyBrandMetadataSchema, roleTypeSchema } from "@/lib/schemas";
 
 const optionalUrlSchema = z
   .string()
@@ -13,8 +13,12 @@ const optionalUrlSchema = z
 
 export const jobFormSchema = z.object({
   title: z.string().trim().min(1, "Role is required"),
-  companyName: z.string().trim().min(1, "Company is required"),
-  companyId: z.string().optional(),
+  companyName: z.string().trim(),
+  companyId: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z.string().optional(),
+  ),
+  companyMetadata: companyBrandMetadataSchema.optional(),
   columnId: z.string().optional(),
   sourceId: z.string().optional(),
   link: optionalUrlSchema,
@@ -26,6 +30,14 @@ export const jobFormSchema = z.object({
   notes: z.string().optional(),
   resumeVersion: z.string().trim().optional(),
   appliedAt: z.string().optional(),
+}).superRefine((values, context) => {
+  if (!values.companyId && !values.companyName.trim()) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Company is required",
+      path: ["companyName"],
+    });
+  }
 });
 
 export type JobFormValues = z.infer<typeof jobFormSchema>;
@@ -34,6 +46,7 @@ export const emptyJobFormValues: JobFormValues = {
   title: "",
   companyName: "",
   companyId: undefined,
+  companyMetadata: undefined,
   columnId: undefined,
   sourceId: "",
   link: "",
@@ -96,8 +109,9 @@ export function toJobFormValues(
 export function toJobInput(values: JobFormValues): CreateJobInput & UpdateJobInput {
   return {
     title: values.title.trim(),
-    companyId: emptyToUndefined(values.companyId),
+    companyId: values.companyId || undefined,
     companyName: values.companyName.trim(),
+    companyMetadata: values.companyMetadata,
     columnId: emptyToUndefined(values.columnId),
     sourceId: emptyToUndefined(values.sourceId),
     link: emptyToUndefined(values.link) ?? "",

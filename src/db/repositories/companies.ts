@@ -1,11 +1,85 @@
 import {
+  normalizeHexColor,
+  normalizeDomain,
+  normalizeWebsiteUrl,
+} from "@/features/companies/company-normalization";
+import { getBrandfetchLogoUrl } from "@/features/companies/company-logo";
+import {
+  companyBrandMetadataSchema,
   companySchema,
   createCompanySchema,
+  type Company,
+  type CompanyBrandMetadata,
   type CreateCompanyInput,
 } from "@/lib/schemas";
 
 import { getDatabase } from "../client";
 import { createId, normalizeName, nowIso } from "../utils";
+
+function compactMetadata(input?: CompanyBrandMetadata) {
+  if (!input) {
+    return {};
+  }
+
+  const parsedInput = companyBrandMetadataSchema.parse(input);
+  const metadata: CompanyBrandMetadata & { website?: string } = {};
+
+  for (const [key, value] of Object.entries(parsedInput)) {
+    if (typeof value === "string" && value.trim()) {
+      metadata[key as keyof CompanyBrandMetadata] = value.trim();
+    }
+  }
+
+  const domain = normalizeDomain(metadata.domain ?? metadata.websiteUrl);
+
+  if (domain) {
+    metadata.domain = domain;
+  }
+
+  const websiteUrl = normalizeWebsiteUrl(metadata.websiteUrl ?? domain);
+
+  if (websiteUrl) {
+    metadata.websiteUrl = websiteUrl;
+  }
+
+  if (!metadata.logoUrl && domain) {
+    metadata.logoUrl = getBrandfetchLogoUrl(domain);
+  }
+
+  const brandColor = normalizeHexColor(metadata.brandColor);
+
+  if (brandColor) {
+    metadata.brandColor = brandColor;
+  } else {
+    delete metadata.brandColor;
+  }
+
+  if (metadata.websiteUrl) {
+    metadata.website = metadata.websiteUrl;
+  }
+
+  return metadata;
+}
+
+export async function updateCompanyBrandMetadata(
+  company: Company,
+  metadata?: CompanyBrandMetadata,
+) {
+  const metadataUpdates = compactMetadata(metadata);
+
+  if (Object.keys(metadataUpdates).length === 0) {
+    return company;
+  }
+
+  const updatedCompany = companySchema.parse({
+    ...company,
+    ...metadataUpdates,
+    updatedAt: nowIso(),
+  });
+
+  await getDatabase().companies.put(updatedCompany);
+  return updatedCompany;
+}
 
 export async function createCompany(input: CreateCompanyInput) {
   const parsedInput = createCompanySchema.parse({
@@ -24,7 +98,10 @@ export async function createCompany(input: CreateCompanyInput) {
   return company;
 }
 
-export async function findOrCreateCompanyByName(name: string) {
+export async function findOrCreateCompanyByName(
+  name: string,
+  metadata?: CompanyBrandMetadata,
+) {
   const normalizedName = normalizeName(name);
   const db = getDatabase();
   const existingCompany = await db.companies
@@ -33,8 +110,8 @@ export async function findOrCreateCompanyByName(name: string) {
     .first();
 
   if (existingCompany) {
-    return existingCompany;
+    return updateCompanyBrandMetadata(existingCompany, metadata);
   }
 
-  return createCompany({ name: normalizedName });
+  return createCompany({ name: normalizedName, ...compactMetadata(metadata) });
 }

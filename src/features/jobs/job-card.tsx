@@ -6,6 +6,10 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Building2, ExternalLink, Trash2, X } from "lucide-react";
 
+import {
+  isValidHexColor,
+  normalizeHexColor,
+} from "@/features/companies/company-normalization";
 import { getBoardIcon } from "@/features/jobs/board-icons";
 import { TagBadge } from "@/features/jobs/tag-badge";
 import { getJobDisplayTimestamp, getJobDisplayTimestampTitle } from "@/lib/dates";
@@ -29,16 +33,33 @@ type JobCardSurfaceProps = {
   onOpen?: () => void;
 };
 
-const columnTopAccent: Record<string, string> = {
-  amber: "bg-amber-500/30",
-  blue: "bg-blue-500/30",
-  green: "bg-emerald-500/30",
-  red: "bg-rose-500/30",
-  slate: "bg-slate-500/25",
-  teal: "bg-teal-500/30",
-  violet: "bg-violet-500/30",
-  zinc: "bg-zinc-500/20",
-};
+const neutralAccentColor = "hsl(var(--muted-foreground) / 0.25)";
+
+function CompanyLogoMark({ job }: { job: BoardJob }) {
+  const [failedUrls, setFailedUrls] = useState<string[]>([]);
+  const imageUrl = [job.companyIconUrl, job.companyLogoUrl]
+    .filter((url): url is string => Boolean(url))
+    .find((url) => !failedUrls.includes(url));
+
+  return (
+    <span className="grid size-4 shrink-0 place-items-center overflow-hidden rounded-sm border border-border/70 bg-background">
+      {imageUrl ? (
+        <img
+          alt=""
+          className="size-full object-contain"
+          onError={() => {
+            setFailedUrls((urls) =>
+              urls.includes(imageUrl) ? urls : [...urls, imageUrl],
+            );
+          }}
+          src={imageUrl}
+        />
+      ) : (
+        <Building2 aria-hidden="true" className="size-3 text-muted-foreground" />
+      )}
+    </span>
+  );
+}
 
 export function JobCardSurface({
   isDragging,
@@ -51,7 +72,10 @@ export function JobCardSurface({
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const shownTags = job.tags.slice(0, 2);
   const SourceIcon = getBoardIcon(job.sourceIcon);
-  const topAccent = columnTopAccent[job.columnColor ?? ""] ?? columnTopAccent.violet;
+  const companyBrandColor = normalizeHexColor(job.companyBrandColor);
+  const accentColor = companyBrandColor && isValidHexColor(companyBrandColor)
+    ? companyBrandColor
+    : neutralAccentColor;
   const hasActions = Boolean(job.link || onDelete);
 
   return (
@@ -85,7 +109,7 @@ export function JobCardSurface({
       role={onOpen ? "button" : undefined}
       tabIndex={onOpen ? 0 : undefined}
     >
-      <div className={cn("absolute inset-x-0 top-0 h-0.5", topAccent)} />
+      <div className="absolute inset-x-0 top-0 h-0.5" style={{ backgroundColor: accentColor }} />
 
       {/* Action icons — top-right corner, hover-reveal with frosted backdrop */}
       {hasActions && !isConfirmingDelete ? (
@@ -166,7 +190,7 @@ export function JobCardSurface({
             className="mt-0.5 flex min-w-0 max-w-full items-center gap-1 overflow-hidden text-[11px] text-muted-foreground"
             title={job.companyName}
           >
-            <Building2 className="size-3 shrink-0" />
+            <CompanyLogoMark job={job} />
             <span className="min-w-0 truncate">{job.companyName}</span>
           </p>
         </div>

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { CompanyAutocomplete } from "@/features/companies/company-autocomplete";
 import { getBoardIcon } from "@/features/jobs/board-icons";
 import type { JobFormValues } from "@/features/jobs/job-form-schema";
 import { inferSourceIdFromLink, isReferralSource } from "@/features/jobs/job-helpers";
@@ -32,35 +33,10 @@ function CompanyField({
   form,
   inputId,
 }: Pick<JobFormFieldsProps, "companies" | "form"> & { inputId: string }) {
-  const companyOptionsId = `${inputId}-options`;
-  const { onChange, ...companyNameRegistration } = form.register("companyName");
-
   return (
     <div className="grid gap-2">
       <Label htmlFor={inputId}>Company</Label>
-      <Input
-        id={inputId}
-        list={companyOptionsId}
-        placeholder="Acme"
-        {...companyNameRegistration}
-        onChange={(event) => {
-          void onChange(event);
-          const typedName = event.target.value.trim().toLocaleLowerCase();
-          const existingCompany = companies.find(
-            (company) => company.name.toLocaleLowerCase() === typedName,
-          );
-
-          form.setValue("companyId", existingCompany?.id, {
-            shouldDirty: true,
-            shouldValidate: true,
-          });
-        }}
-      />
-      <datalist id={companyOptionsId}>
-        {companies.map((company) => (
-          <option key={company.id} value={company.name} />
-        ))}
-      </datalist>
+      <CompanyAutocomplete companies={companies} form={form} inputId={inputId} />
       <FieldError message={form.formState.errors.companyName?.message} />
     </div>
   );

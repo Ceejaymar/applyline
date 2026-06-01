@@ -17,6 +17,8 @@ type BrandCacheRow = {
   icon_url: string | null;
   logo_url: string | null;
   brand_color: string | null;
+  source: string | null;
+  fetched_at: string | null;
 };
 
 export async function GET(request: NextRequest) {
@@ -42,7 +44,7 @@ export async function GET(request: NextRequest) {
   const { data, error } = await supabaseAdmin
     .from("brand_cache")
     .select(
-      "brandfetch_brand_id,name,normalized_name,domain,normalized_domain,website_url,icon_url,logo_url,brand_color",
+      "brandfetch_brand_id,name,normalized_name,domain,normalized_domain,website_url,icon_url,logo_url,brand_color,source,fetched_at",
     )
     .or(filters.join(","))
     .limit(8);
@@ -65,6 +67,8 @@ export async function GET(request: NextRequest) {
       logoUrl: row.logo_url ?? undefined,
       brandColor: row.brand_color ?? undefined,
       brandfetchBrandId: row.brandfetch_brand_id ?? undefined,
+      enrichmentSource: row.source ?? undefined,
+      enrichmentUpdatedAt: row.fetched_at ?? undefined,
       source: "supabase",
     }),
   );

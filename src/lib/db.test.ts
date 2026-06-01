@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_COLUMN_IDS, defaultColumns, defaultSources } from "@/lib/schemas";
 import {
   _resetDatabaseSingletonForTesting,
+  createJob,
   getDatabase,
   moveJobToColumn,
 } from "@/db";
@@ -136,5 +137,41 @@ describe("moveJobToColumn", () => {
     await expect(
       moveJobToColumn("nonexistent_job", DEFAULT_COLUMN_IDS.applied),
     ).rejects.toThrow("Job was not found");
+  });
+});
+
+describe("createJob", () => {
+  it("stores selected company brand metadata on the local company record", async () => {
+    const job = await createJob({
+      title: "Product Manager",
+      companyName: "OpenAI",
+      columnId: DEFAULT_COLUMN_IDS.wishlist,
+      tags: [],
+      companyMetadata: {
+        domain: "openai.com",
+        websiteUrl: "https://openai.com",
+        iconUrl: "https://cdn.brandfetch.io/openai.com/icon",
+        logoUrl: "https://cdn.brandfetch.io/openai.com/logo",
+        brandColor: "#10a37f",
+        brandfetchBrandId: "brand_openai",
+        enrichmentSource: "brandfetch",
+        enrichmentUpdatedAt: "2026-05-30T00:00:00.000+00:00",
+      },
+    });
+
+    const company = await getDatabase().companies.get(job.companyId);
+
+    expect(company).toMatchObject({
+      name: "OpenAI",
+      domain: "openai.com",
+      website: "https://openai.com",
+      websiteUrl: "https://openai.com",
+      iconUrl: "https://cdn.brandfetch.io/openai.com/icon",
+      logoUrl: "https://cdn.brandfetch.io/openai.com/logo",
+      brandColor: "#10a37f",
+      brandfetchBrandId: "brand_openai",
+      enrichmentSource: "brandfetch",
+      enrichmentUpdatedAt: "2026-05-30T00:00:00.000+00:00",
+    });
   });
 });

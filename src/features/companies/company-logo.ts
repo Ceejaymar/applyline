@@ -8,5 +8,5 @@ export function getBrandfetchLogoUrl(domain?: string | null) {
     return undefined;
   }
 
-  return `https://cdn.brandfetch.io/${encodeURIComponent(normalizedDomain)}/fallback/lettermark/icon?c=${encodeURIComponent(clientId)}`;
+  return `https://cdn.brandfetch.io/${encodeURIComponent(normalizedDomain)}?c=${encodeURIComponent(clientId)}`;
 }

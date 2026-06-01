@@ -49,6 +49,21 @@ export function normalizeWebsiteUrl(value?: string | null) {
   return domain ? `https://${domain}` : undefined;
 }
 
+export function normalizeHexColor(value?: string | null) {
+  if (!value) {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  const hexMatch = trimmed.match(/^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);
+
+  return hexMatch ? `#${hexMatch[1]}` : undefined;
+}
+
+export function isValidHexColor(value?: string | null): value is string {
+  return Boolean(normalizeHexColor(value));
+}
+
 function mergeSuggestion(
   current: CompanyBrandSuggestion,
   next: CompanyBrandSuggestion,

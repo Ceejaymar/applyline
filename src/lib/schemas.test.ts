@@ -105,6 +105,15 @@ describe("companySchema", () => {
     expect(companySchema.parse({ ...valid, website: "" }).website).toBe("");
   });
 
+  it("accepts Supabase timestamptz offsets for enrichmentUpdatedAt", () => {
+    const result = companySchema.parse({
+      ...valid,
+      enrichmentUpdatedAt: "2026-05-31T14:25:30.123+00:00",
+    });
+
+    expect(result.enrichmentUpdatedAt).toBe("2026-05-31T14:25:30.123+00:00");
+  });
+
   it("rejects an invalid website URL", () => {
     expect(() => companySchema.parse({ ...valid, website: "not-a-url" })).toThrow();
   });
@@ -168,6 +177,24 @@ describe("createJobSchema", () => {
     expect(
       createJobSchema.safeParse({ title: "Engineer", companyId: "company_1" }).success,
     ).toBe(true);
+  });
+
+  it("treats an empty companyId as missing and accepts Supabase-enriched metadata", () => {
+    const result = createJobSchema.safeParse({
+      title: "Engineer",
+      companyId: "",
+      companyName: "Figma",
+      companyMetadata: {
+        domain: "figma.com",
+        iconUrl: "https://cdn.brandfetch.io/figma.com/icon",
+        enrichmentUpdatedAt: "2026-05-31T14:25:30.123+00:00",
+      },
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.companyId).toBeUndefined();
+    }
   });
 
   it("accepts supported role types", () => {

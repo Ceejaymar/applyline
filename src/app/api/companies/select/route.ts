@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+import { enrichSelectedCompany } from "@/features/companies/brandfetch-enrich-server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import {
-  normalizeCompanyName,
-  normalizeDomain,
-  normalizeWebsiteUrl,
-} from "@/features/companies/company-normalization";
 import type { CompanyBrandSuggestion } from "@/features/companies/company-brand.types";
 
 const selectedCompanySchema = z.object({
@@ -34,36 +30,34 @@ export async function POST(request: NextRequest) {
   }
 
   const input = parsed.data;
-  const normalizedName = normalizeCompanyName(input.name);
-  const normalizedDomain = normalizeDomain(input.domain ?? input.websiteUrl);
-  const websiteUrl = normalizeWebsiteUrl(input.websiteUrl ?? input.domain);
+  const enriched = await enrichSelectedCompany(input);
 
   const payload = {
-    brandfetch_brand_id: input.brandfetchBrandId ?? null,
-    name: input.name,
-    normalized_name: normalizedName,
-    domain: normalizedDomain ?? null,
-    normalized_domain: normalizedDomain ?? null,
-    website_url: websiteUrl ?? null,
-    icon_url: input.iconUrl ?? null,
-    logo_url: input.logoUrl ?? null,
-    brand_color: input.brandColor ?? null,
-    source: input.brandfetchBrandId ? "brandfetch" : "manual",
-    fetched_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    brandfetch_brand_id: enriched.brandfetchBrandId ?? null,
+    name: enriched.name,
+    normalized_name: enriched.normalizedName,
+    domain: enriched.domain ?? null,
+    normalized_domain: enriched.normalizedDomain ?? null,
+    website_url: enriched.websiteUrl ?? null,
+    icon_url: enriched.iconUrl ?? null,
+    logo_url: enriched.logoUrl ?? null,
+    brand_color: enriched.brandColor ?? null,
+    source: enriched.enrichmentSource ?? "selected",
+    fetched_at: enriched.enrichmentUpdatedAt,
+    updated_at: enriched.enrichmentUpdatedAt,
   };
 
   let existingQuery = supabaseAdmin.from("brand_cache").select("*").limit(1);
 
-  if (normalizedDomain) {
-    existingQuery = existingQuery.eq("normalized_domain", normalizedDomain);
-  } else if (input.brandfetchBrandId) {
+  if (enriched.normalizedDomain) {
+    existingQuery = existingQuery.eq("normalized_domain", enriched.normalizedDomain);
+  } else if (enriched.brandfetchBrandId) {
     existingQuery = existingQuery.eq(
       "brandfetch_brand_id",
-      input.brandfetchBrandId,
+      enriched.brandfetchBrandId,
     );
   } else {
-    existingQuery = existingQuery.eq("normalized_name", normalizedName);
+    existingQuery = existingQuery.eq("normalized_name", enriched.normalizedName);
   }
 
   const { data: existingRows, error: existingError } = await existingQuery;
@@ -112,6 +106,8 @@ export async function POST(request: NextRequest) {
     logoUrl: row.logo_url ?? undefined,
     brandColor: row.brand_color ?? undefined,
     brandfetchBrandId: row.brandfetch_brand_id ?? undefined,
+    enrichmentSource: row.source ?? undefined,
+    enrichmentUpdatedAt: row.fetched_at ?? undefined,
     source: "supabase",
   };
 

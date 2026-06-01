@@ -67,6 +67,14 @@ export const companySchema = z.object({
   id: z.string(),
   name: z.string().min(1, "Company is required"),
   website: z.string().url("Enter a valid URL").optional().or(z.literal("")),
+  domain: z.string().optional(),
+  websiteUrl: z.string().optional(),
+  iconUrl: z.string().optional(),
+  logoUrl: z.string().optional(),
+  brandColor: z.string().optional(),
+  brandfetchBrandId: z.string().optional(),
+  enrichmentSource: z.string().optional(),
+  enrichmentUpdatedAt: z.string().datetime({ offset: true }).optional(),
   location: z.string().optional(),
   notes: z.string().optional(),
   createdAt: z.string().datetime(),
@@ -115,8 +123,32 @@ export const sourceSchema = z.object({
 export const createCompanySchema = companySchema.pick({
   name: true,
   website: true,
+  domain: true,
+  websiteUrl: true,
+  iconUrl: true,
+  logoUrl: true,
+  brandColor: true,
+  brandfetchBrandId: true,
+  enrichmentSource: true,
+  enrichmentUpdatedAt: true,
   location: true,
   notes: true,
+});
+
+const optionalFormIdSchema = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z.string().optional(),
+);
+
+export const companyBrandMetadataSchema = z.object({
+  domain: z.string().trim().optional(),
+  websiteUrl: z.string().trim().optional(),
+  iconUrl: z.string().trim().optional(),
+  logoUrl: z.string().trim().optional(),
+  brandColor: z.string().trim().optional(),
+  brandfetchBrandId: z.string().trim().optional(),
+  enrichmentSource: z.string().trim().optional(),
+  enrichmentUpdatedAt: z.string().datetime({ offset: true }).optional(),
 });
 
 export const createContactSchema = contactSchema.pick({
@@ -152,12 +184,13 @@ const createJobBaseSchema = jobSchema
   })
   .extend({
     columnId: z.string().optional(),
-    companyId: z.string().optional(),
-    companyName: z.string().min(1, "Company is required").optional(),
+    companyId: optionalFormIdSchema,
+    companyName: z.string().trim().optional(),
+    companyMetadata: companyBrandMetadataSchema.optional(),
   });
 
 export const createJobSchema = createJobBaseSchema.refine(
-  (input) => input.companyId || input.companyName,
+  (input) => input.companyId || input.companyName?.trim(),
   {
     message: "Company is required",
     path: ["companyName"],
@@ -238,6 +271,7 @@ export type ActivityType = z.infer<typeof activityTypeSchema>;
 export type Column = z.infer<typeof columnSchema>;
 export type Job = z.infer<typeof jobSchema>;
 export type Company = z.infer<typeof companySchema>;
+export type CompanyBrandMetadata = z.infer<typeof companyBrandMetadataSchema>;
 export type Contact = z.infer<typeof contactSchema>;
 export type JobContact = z.infer<typeof jobContactSchema>;
 export type Activity = z.infer<typeof activitySchema>;

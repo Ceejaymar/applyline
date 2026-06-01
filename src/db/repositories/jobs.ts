@@ -5,6 +5,7 @@ import {
   jobSchema,
   updateJobSchema,
   type ArchivedReason,
+  type Company,
   type CreateJobInput,
   type Job,
   type UpdateJobInput,
@@ -13,7 +14,7 @@ import {
 import { getDatabase } from "../client";
 import { initializeDatabase } from "../seed";
 import { createId, nowIso, sortJobsForPersistence } from "../utils";
-import { findOrCreateCompanyByName } from "./companies";
+import { findOrCreateCompanyByName, updateCompanyBrandMetadata } from "./companies";
 
 type CreateJobOptions = {
   activityMessage?: string;
@@ -23,10 +24,23 @@ export async function createJob(input: CreateJobInput, options: CreateJobOptions
   await initializeDatabase();
 
   const parsedInput = createJobSchema.parse(input);
-  const company =
+  const existingCompany =
     parsedInput.companyId ?
       await getDatabase().companies.get(parsedInput.companyId)
-    : await findOrCreateCompanyByName(parsedInput.companyName ?? "");
+    : undefined;
+  let company: Company | undefined;
+
+  if (existingCompany) {
+    company = await updateCompanyBrandMetadata(
+      existingCompany,
+      parsedInput.companyMetadata,
+    );
+  } else if (!parsedInput.companyId) {
+    company = await findOrCreateCompanyByName(
+      parsedInput.companyName ?? "",
+      parsedInput.companyMetadata,
+    );
+  }
 
   if (!company) {
     throw new Error("Company was not found.");
@@ -91,8 +105,19 @@ export async function updateJob(id: string, input: UpdateJobInput) {
   const companyId =
     parsedInput.companyId ??
     (parsedInput.companyName ?
-      (await findOrCreateCompanyByName(parsedInput.companyName)).id
+      (await findOrCreateCompanyByName(
+        parsedInput.companyName,
+        parsedInput.companyMetadata,
+      )).id
     : undefined);
+
+  if (parsedInput.companyId && parsedInput.companyMetadata) {
+    const company = await db.companies.get(parsedInput.companyId);
+
+    if (company) {
+      await updateCompanyBrandMetadata(company, parsedInput.companyMetadata);
+    }
+  }
 
   const nextColumnId = parsedInput.columnId;
   const nextJob = jobSchema.parse({
