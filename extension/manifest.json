@@ -15,11 +15,11 @@
   "content_scripts": [
     {
       "matches": [
-        "https://applyline.vercel.app/capture*",
-        "http://localhost:3000/capture*"
+        "https://applyline.vercel.app/*",
+        "http://localhost:3000/*"
       ],
       "js": ["content/capture-bridge.js"],
-      "run_at": "document_idle"
+      "run_at": "document_start"
     }
   ]
 }

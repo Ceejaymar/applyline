@@ -10,7 +10,15 @@ import {
   type ChangeEvent,
   type FocusEvent,
 } from "react";
-import { CheckCircle2, Loader2, Pencil, Plus, Save, TriangleAlert, X } from "lucide-react";
+import {
+  CheckCircle2,
+  Loader2,
+  Pencil,
+  Plus,
+  Save,
+  TriangleAlert,
+  X,
+} from "lucide-react";
 import { z } from "zod";
 
 import { buttonVariants } from "@/components/ui/button";
@@ -46,28 +54,33 @@ const missingDraftMessageSchema = z.object({
   draftId: z.string().min(1),
 });
 
-const captureDraftSchema = z
-  .object({
-    title: z.string().trim().min(1, "Role is required").max(180),
-    companyName: z.string().trim().min(1, "Company is required").max(180),
-    link: z.string().trim().url("Enter a valid URL").optional().or(z.literal("")),
-    url: z.string().trim().url("Enter a valid URL").optional().or(z.literal("")),
-    sourceId: z.string().trim().optional(),
-    sourceName: z.string().trim().max(80).optional(),
-    location: z.string().trim().max(180).optional(),
-    roleType: roleTypeSchema.optional(),
-    workplaceType: z.enum(["remote", "hybrid", "onsite", "unknown"]).optional(),
-    compensation: z.string().trim().max(240).optional(),
-    description: z.string().trim().max(DESCRIPTION_LIMIT).optional(),
-    notes: z.string().trim().max(DESCRIPTION_LIMIT).optional(),
-    tags: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
-    capturedAt: z.string().datetime().optional(),
-    extractedAt: z.string().datetime().optional(),
-    extractionConfidence: z.enum(["high", "medium", "low"]).optional(),
-  });
+const captureDraftSchema = z.object({
+  title: z.string().trim().min(1, "Role is required").max(180),
+  companyName: z.string().trim().min(1, "Company is required").max(180),
+  link: z.string().trim().url("Enter a valid URL").optional().or(z.literal("")),
+  url: z.string().trim().url("Enter a valid URL").optional().or(z.literal("")),
+  sourceId: z.string().trim().optional(),
+  sourceName: z.string().trim().max(80).optional(),
+  location: z.string().trim().max(180).optional(),
+  roleType: roleTypeSchema.optional(),
+  workplaceType: z.enum(["remote", "hybrid", "onsite", "unknown"]).optional(),
+  compensation: z.string().trim().max(240).optional(),
+  description: z.string().trim().max(DESCRIPTION_LIMIT).optional(),
+  notes: z.string().trim().max(DESCRIPTION_LIMIT).optional(),
+  tags: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
+  capturedAt: z.string().datetime().optional(),
+  extractedAt: z.string().datetime().optional(),
+  extractionConfidence: z.enum(["high", "medium", "low"]).optional(),
+});
 
 type CaptureDraft = z.infer<typeof captureDraftSchema>;
-type CaptureMode = "waiting" | "review" | "edit" | "saving" | "success" | "error";
+type CaptureMode =
+  | "waiting"
+  | "review"
+  | "edit"
+  | "saving"
+  | "success"
+  | "error";
 
 type FormValues = {
   title: string;
@@ -114,7 +127,10 @@ function mergeTags(...tagGroups: (string[] | undefined)[]) {
 
 function decodeDraftPayload(encodedDraft: string) {
   const base64 = encodedDraft.replace(/-/g, "+").replace(/_/g, "/");
-  const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
+  const padded = base64.padEnd(
+    base64.length + ((4 - (base64.length % 4)) % 4),
+    "=",
+  );
   const binary = atob(padded);
   const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
   return JSON.parse(new TextDecoder().decode(bytes));
@@ -176,16 +192,28 @@ function defaultSourceIdForName(sourceName?: string) {
   return sourceIdsByName[normalizedName] ?? "";
 }
 
-function toFormValues(draft: CaptureDraft, sources: Source[], defaultColumnId: string): FormValues {
-  const defaultSourceId = draft.sourceId ?? defaultSourceIdForName(draft.sourceName);
-  const matchedSource =
-    defaultSourceId ? sources.find((source) => source.id === defaultSourceId) : undefined;
-  const matchedSourceByName =
-    draft.sourceName ?
-      sources.find((source) => source.name.toLocaleLowerCase() === draft.sourceName?.toLocaleLowerCase())
+function toFormValues(
+  draft: CaptureDraft,
+  sources: Source[],
+  defaultColumnId: string,
+): FormValues {
+  const defaultSourceId =
+    draft.sourceId ?? defaultSourceIdForName(draft.sourceName);
+  const matchedSource = defaultSourceId
+    ? sources.find((source) => source.id === defaultSourceId)
+    : undefined;
+  const matchedSourceByName = draft.sourceName
+    ? sources.find(
+        (source) =>
+          source.name.toLocaleLowerCase() ===
+          draft.sourceName?.toLocaleLowerCase(),
+      )
     : undefined;
 
-  const tags = mergeTags(draft.tags, compactTags([workplaceTypeTag(draft.workplaceType)]));
+  const tags = mergeTags(
+    draft.tags,
+    compactTags([workplaceTypeTag(draft.workplaceType)]),
+  );
 
   return {
     title: draft.title,
@@ -194,7 +222,11 @@ function toFormValues(draft: CaptureDraft, sources: Source[], defaultColumnId: s
     companyName: draft.companyName,
     link: draft.link ?? draft.url ?? "",
     sourceId: matchedSource?.id ?? matchedSourceByName?.id ?? "",
-    sourceName: draft.sourceName ?? matchedSource?.name ?? matchedSourceByName?.name ?? "",
+    sourceName:
+      draft.sourceName ??
+      matchedSource?.name ??
+      matchedSourceByName?.name ??
+      "",
     columnId: defaultColumnId,
     location: draft.location ?? "",
     roleType: draftRoleType(draft),
@@ -222,7 +254,9 @@ function formatRoleType(value: FormValues["roleType"]) {
 
 function getDraftFromHash() {
   const hash = window.location.hash;
-  const params = new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash);
+  const params = new URLSearchParams(
+    hash.startsWith("#") ? hash.slice(1) : hash,
+  );
   const encodedDraft = params.get("draft");
 
   if (!encodedDraft) {
@@ -236,7 +270,13 @@ function getDraftIdFromQuery() {
   return new URLSearchParams(window.location.search).get("draftId");
 }
 
-function postBridgeMessage(type: "APPLYLINE_CAPTURE_RECEIVED" | "APPLYLINE_CAPTURE_SAVED", draftId: string) {
+function postBridgeMessage(
+  type:
+    | "APPLYLINE_CAPTURE_READY"
+    | "APPLYLINE_CAPTURE_RECEIVED"
+    | "APPLYLINE_CAPTURE_SAVED",
+  draftId: string,
+) {
   window.postMessage(
     {
       source: "applyline-app",
@@ -276,8 +316,12 @@ function formatZodIssues(error: z.ZodError, draft?: unknown) {
 function Field({ label, value }: { label: string; value?: string }) {
   return (
     <div className="grid gap-1">
-      <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</dt>
-      <dd className="whitespace-pre-wrap break-words text-sm">{value || "—"}</dd>
+      <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </dt>
+      <dd className="whitespace-pre-wrap break-words text-sm">
+        {value || "—"}
+      </dd>
     </div>
   );
 }
@@ -315,15 +359,24 @@ function DuplicateWarning({
         <div className="grid gap-1">
           <h2 className="font-semibold">Possible duplicate</h2>
           <p className="text-sm">
-            Applyline already has {duplicateJob.title} at {duplicateJob.companyName}.
+            Applyline already has {duplicateJob.title} at{" "}
+            {duplicateJob.companyName}.
           </p>
         </div>
       </div>
       <div className="flex flex-wrap gap-2">
-        <button className={buttonVariants({ size: "sm" })} onClick={onContinue} type="button">
+        <button
+          className={buttonVariants({ size: "sm" })}
+          onClick={onContinue}
+          type="button"
+        >
           Save anyway
         </button>
-        <button className={buttonVariants({ size: "sm", variant: "outline" })} onClick={onCancel} type="button">
+        <button
+          className={buttonVariants({ size: "sm", variant: "outline" })}
+          onClick={onCancel}
+          type="button"
+        >
           Review draft
         </button>
       </div>
@@ -333,13 +386,23 @@ function DuplicateWarning({
 
 export function CapturePageClient() {
   const router = useRouter();
-  const { columns, companies, error: boardError, isLoading, jobs, sources } = useBoardData();
+  const {
+    columns,
+    companies,
+    error: boardError,
+    isLoading,
+    jobs,
+    sources,
+  } = useBoardData();
   const [mode, setMode] = useState<CaptureMode>("waiting");
-  const [message, setMessage] = useState("Waiting for a job draft from the extension.");
+  const [message, setMessage] = useState(
+    "Waiting for a job draft from the extension.",
+  );
   const [formValues, setFormValues] = useState<FormValues | null>(null);
   const [savedJobTitle, setSavedJobTitle] = useState("");
   const [duplicateJob, setDuplicateJob] = useState<BoardJob | null>(null);
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
+  const [hasWaitedForDraft, setHasWaitedForDraft] = useState(false);
   const hasReadHashRef = useRef(false);
   const defaultColumnId =
     columns.find((column) => column.id === DEFAULT_COLUMN_IDS.wishlist)?.id ??
@@ -378,10 +441,11 @@ export function CapturePageClient() {
     } catch (error) {
       setMode("error");
       setMessage(
-        error instanceof z.ZodError ?
-          formatZodIssues(error)
-        : error instanceof Error ? error.message
-        : "The job draft could not be read.",
+        error instanceof z.ZodError
+          ? formatZodIssues(error)
+          : error instanceof Error
+            ? error.message
+            : "The job draft could not be read.",
       );
     }
   }, [defaultColumnId, isLoading, sources]);
@@ -397,7 +461,9 @@ export function CapturePageClient() {
       const parsedMessage = extensionMessageSchema.safeParse(event.data);
 
       if (!parsedMessage.success) {
-        const missingDraftMessage = missingDraftMessageSchema.safeParse(event.data);
+        const missingDraftMessage = missingDraftMessageSchema.safeParse(
+          event.data,
+        );
 
         if (missingDraftMessage.success) {
           setActiveDraftId(missingDraftMessage.data.draftId);
@@ -410,30 +476,73 @@ export function CapturePageClient() {
         return;
       }
 
-      const parsedDraft = captureDraftSchema.safeParse(parsedMessage.data.draft);
+      const parsedDraft = captureDraftSchema.safeParse(
+        parsedMessage.data.draft,
+      );
 
       if (!parsedDraft.success) {
         setMode("error");
-        setMessage(formatZodIssues(parsedDraft.error, parsedMessage.data.draft));
+        setMessage(
+          formatZodIssues(parsedDraft.error, parsedMessage.data.draft),
+        );
         return;
       }
 
       setFormValues(toFormValues(parsedDraft.data, sources, defaultColumnId));
       setActiveDraftId(parsedMessage.data.draftId);
+      setHasWaitedForDraft(false);
       setDuplicateJob(null);
       setMode("review");
-      postBridgeMessage("APPLYLINE_CAPTURE_RECEIVED", parsedMessage.data.draftId);
+      postBridgeMessage(
+        "APPLYLINE_CAPTURE_RECEIVED",
+        parsedMessage.data.draftId,
+      );
     }
 
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
   }, [defaultColumnId, sources]);
 
+  useEffect(() => {
+    if (!activeDraftId || mode !== "waiting") {
+      return;
+    }
+
+    postBridgeMessage("APPLYLINE_CAPTURE_READY", activeDraftId);
+  }, [activeDraftId, mode]);
+
+  useEffect(() => {
+    if (!activeDraftId || mode !== "waiting") {
+      setHasWaitedForDraft(false);
+      return;
+    }
+
+    setHasWaitedForDraft(false);
+    const timeoutId = window.setTimeout(() => {
+      setHasWaitedForDraft(true);
+    }, 5_000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [activeDraftId, mode]);
+
+  function retryDraftLoad() {
+    if (!activeDraftId) {
+      return;
+    }
+
+    setHasWaitedForDraft(false);
+    postBridgeMessage("APPLYLINE_CAPTURE_READY", activeDraftId);
+  }
+
   function updateField(
     key: Exclude<keyof FormValues, "companyMetadata">,
-    event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
+    event: ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >,
   ) {
-    setFormValues((values) => (values ? { ...values, [key]: event.target.value } : values));
+    setFormValues((values) =>
+      values ? { ...values, [key]: event.target.value } : values,
+    );
   }
 
   const companyAutocompleteForm = useMemo(
@@ -445,14 +554,14 @@ export function CapturePageClient() {
         onChange: (event: ChangeEvent<HTMLInputElement>) => {
           const nextValue = event.target.value;
           setFormValues((values) =>
-            values ?
-              {
-                ...values,
-                companyId: "",
-                companyMetadata: undefined,
-                [name]: nextValue,
-              }
-            : values,
+            values
+              ? {
+                  ...values,
+                  companyId: "",
+                  companyMetadata: undefined,
+                  [name]: nextValue,
+                }
+              : values,
           );
         },
         value: formValues?.companyName ?? "",
@@ -493,7 +602,8 @@ export function CapturePageClient() {
     }
 
     const existingSource = sources.find(
-      (source) => source.name.toLocaleLowerCase() === sourceName.toLocaleLowerCase(),
+      (source) =>
+        source.name.toLocaleLowerCase() === sourceName.toLocaleLowerCase(),
     );
 
     if (existingSource) {
@@ -509,15 +619,14 @@ export function CapturePageClient() {
       return;
     }
 
-    const possibleDuplicate =
-      skipDuplicateCheck ? null : (
-        findPossibleDuplicateJob({
+    const possibleDuplicate = skipDuplicateCheck
+      ? null
+      : findPossibleDuplicateJob({
           companyName: formValues.companyName,
           jobs,
           link: formValues.link,
           title: formValues.title,
-        })
-      );
+        });
 
     if (possibleDuplicate) {
       setDuplicateJob(possibleDuplicate);
@@ -530,24 +639,32 @@ export function CapturePageClient() {
     try {
       const sourceId = await resolveSourceId(formValues);
       const sourceLabel =
-        sources.find((source) => source.id === sourceId)?.name || formValues.sourceName.trim();
+        sources.find((source) => source.id === sourceId)?.name ||
+        formValues.sourceName.trim();
       const activityMessage = sourceLabel
         ? `Created from Applyline Clipper via ${sourceLabel}.`
         : "Created from Applyline Clipper.";
-      const job = await createJob({
-        title: formValues.title,
-        companyId: emptyToUndefined(formValues.companyId),
-        companyName: formValues.companyName,
-        companyMetadata: formValues.companyMetadata,
-        columnId: formValues.columnId || DEFAULT_COLUMN_IDS.wishlist,
-        sourceId,
-        link: formValues.link.trim(),
-        location: emptyToUndefined(formValues.location),
-        roleType: emptyToUndefined(formValues.roleType) as "remote" | "hybrid" | "in_person" | undefined,
-        compensation: emptyToUndefined(formValues.compensation),
-        description: emptyToUndefined(formValues.description),
-        tags: parseTags(formValues.tagsText),
-      }, { activityMessage });
+      const job = await createJob(
+        {
+          title: formValues.title,
+          companyId: emptyToUndefined(formValues.companyId),
+          companyName: formValues.companyName,
+          companyMetadata: formValues.companyMetadata,
+          columnId: formValues.columnId || DEFAULT_COLUMN_IDS.wishlist,
+          sourceId,
+          link: formValues.link.trim(),
+          location: emptyToUndefined(formValues.location),
+          roleType: emptyToUndefined(formValues.roleType) as
+            | "remote"
+            | "hybrid"
+            | "in_person"
+            | undefined,
+          compensation: emptyToUndefined(formValues.compensation),
+          description: emptyToUndefined(formValues.description),
+          tags: parseTags(formValues.tagsText),
+        },
+        { activityMessage },
+      );
 
       setSavedJobTitle(job.title);
       setMode("success");
@@ -563,7 +680,9 @@ export function CapturePageClient() {
       router.replace("/");
     } catch (error) {
       setMode("error");
-      setMessage(error instanceof Error ? error.message : "The job could not be saved.");
+      setMessage(
+        error instanceof Error ? error.message : "The job could not be saved.",
+      );
     }
   }
 
@@ -573,7 +692,9 @@ export function CapturePageClient() {
     setDuplicateJob(null);
     setActiveDraftId(null);
     setMode("waiting");
-    setMessage("Open a job posting and use the Applyline extension to capture another draft.");
+    setMessage(
+      "Open a job posting and use the Applyline extension to capture another draft.",
+    );
   }
 
   if (isLoading) {
@@ -583,7 +704,9 @@ export function CapturePageClient() {
           <Loader2 className="mt-1 size-5 animate-spin text-primary" />
           <div className="grid gap-1">
             <h1 className="text-xl font-semibold">Preparing capture</h1>
-            <p className="text-sm text-muted-foreground">Loading your local Applyline data.</p>
+            <p className="text-sm text-muted-foreground">
+              Loading your local Applyline data.
+            </p>
           </div>
         </section>
       </main>
@@ -598,7 +721,9 @@ export function CapturePageClient() {
             <TriangleAlert className="mt-1 size-5 text-destructive" />
             <div className="grid gap-1">
               <h1 className="text-xl font-semibold">Capture unavailable</h1>
-              <p className="text-sm text-muted-foreground">{boardError.message}</p>
+              <p className="text-sm text-muted-foreground">
+                {boardError.message}
+              </p>
             </div>
           </div>
         </section>
@@ -616,10 +741,29 @@ export function CapturePageClient() {
               <div className="grid gap-1">
                 <h1 className="text-xl font-semibold">Capture a job</h1>
                 <p className="text-sm text-muted-foreground">{message}</p>
+                {activeDraftId && hasWaitedForDraft ? (
+                  <p className="text-sm font-medium">
+                    Still waiting for the extension draft.
+                  </p>
+                ) : null}
               </div>
             </div>
-            <div className="border-t pt-5">
-              <Link className={buttonVariants({ variant: "outline" })} href="/">
+            <div className="flex flex-wrap gap-3 border-t pt-5">
+              {activeDraftId ? (
+                <button
+                  className={buttonVariants()}
+                  onClick={retryDraftLoad}
+                  type="button"
+                >
+                  Retry loading draft
+                </button>
+              ) : null}
+              <Link
+                className={buttonVariants({
+                  variant: activeDraftId ? "outline" : "default",
+                })}
+                href="/"
+              >
                 Open board
               </Link>
             </div>
@@ -636,7 +780,11 @@ export function CapturePageClient() {
               </div>
             </div>
             <div className="flex flex-wrap gap-3 border-t pt-5">
-              <button className={buttonVariants({ variant: "outline" })} onClick={resetForAnother} type="button">
+              <button
+                className={buttonVariants({ variant: "outline" })}
+                onClick={resetForAnother}
+                type="button"
+              >
                 Try another
               </button>
               <Link className={buttonVariants()} href="/">
@@ -651,7 +799,9 @@ export function CapturePageClient() {
             <Loader2 className="mt-1 size-5 animate-spin text-primary" />
             <div className="grid gap-1">
               <h1 className="text-xl font-semibold">Saving job</h1>
-              <p className="text-sm text-muted-foreground">Writing this draft into your local Applyline database.</p>
+              <p className="text-sm text-muted-foreground">
+                Writing this draft into your local Applyline database.
+              </p>
             </div>
           </div>
         ) : null}
@@ -671,7 +821,11 @@ export function CapturePageClient() {
               <Link className={buttonVariants()} href="/">
                 Open board
               </Link>
-              <button className={buttonVariants({ variant: "outline" })} onClick={resetForAnother} type="button">
+              <button
+                className={buttonVariants({ variant: "outline" })}
+                onClick={resetForAnother}
+                type="button"
+              >
                 <Plus />
                 Add another
               </button>
@@ -683,9 +837,12 @@ export function CapturePageClient() {
           <div className="grid gap-6">
             <div className="flex flex-col gap-3 border-b pb-5 sm:flex-row sm:items-start sm:justify-between">
               <div className="grid gap-1">
-                <h1 className="text-xl font-semibold">Review job before saving</h1>
+                <h1 className="text-xl font-semibold">
+                  Review job before saving
+                </h1>
                 <p className="text-sm text-muted-foreground">
-                  Check the extension draft before saving it to your local Applyline board.
+                  Check the extension draft before saving it to your local
+                  Applyline board.
                 </p>
               </div>
               <span className="rounded-md border bg-secondary px-2.5 py-1 text-xs font-medium text-secondary-foreground">
@@ -706,9 +863,15 @@ export function CapturePageClient() {
                 <Field label="Title" value={formValues.title} />
                 <Field label="Company" value={formValues.companyName} />
                 <Field label="URL" value={formValues.link} />
-                <Field label="Source" value={selectedSource?.name ?? formValues.sourceName} />
+                <Field
+                  label="Source"
+                  value={selectedSource?.name ?? formValues.sourceName}
+                />
                 <Field label="Location" value={formValues.location} />
-                <Field label="Workplace type" value={formatRoleType(formValues.roleType)} />
+                <Field
+                  label="Workplace type"
+                  value={formatRoleType(formValues.roleType)}
+                />
                 <Field label="Compensation" value={formValues.compensation} />
                 <Field label="Tags" value={formValues.tagsText} />
                 <div className="sm:col-span-2">
@@ -716,7 +879,10 @@ export function CapturePageClient() {
                 </div>
               </dl>
             ) : (
-              <form className="grid gap-5" onSubmit={(event) => event.preventDefault()}>
+              <form
+                className="grid gap-5"
+                onSubmit={(event) => event.preventDefault()}
+              >
                 <div className="grid gap-4 sm:grid-cols-2">
                   <FormField id="capture-title" label="Title">
                     <Input
@@ -744,7 +910,11 @@ export function CapturePageClient() {
                 </FormField>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <FormField id="capture-source" label="Source">
-                    <Select id="capture-source" onChange={(event) => updateField("sourceId", event)} value={formValues.sourceId}>
+                    <Select
+                      id="capture-source"
+                      onChange={(event) => updateField("sourceId", event)}
+                      value={formValues.sourceId}
+                    >
                       <option value="">Use source name</option>
                       {sources.map((source) => (
                         <option key={source.id} value={source.id}>
@@ -764,7 +934,11 @@ export function CapturePageClient() {
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <FormField id="capture-column" label="Column">
-                    <Select id="capture-column" onChange={(event) => updateField("columnId", event)} value={formValues.columnId}>
+                    <Select
+                      id="capture-column"
+                      onChange={(event) => updateField("columnId", event)}
+                      value={formValues.columnId}
+                    >
                       {columns.map((column) => (
                         <option key={column.id} value={column.id}>
                           {column.name}
@@ -773,12 +947,20 @@ export function CapturePageClient() {
                     </Select>
                   </FormField>
                   <FormField id="capture-location" label="Location">
-                    <Input id="capture-location" onChange={(event) => updateField("location", event)} value={formValues.location} />
+                    <Input
+                      id="capture-location"
+                      onChange={(event) => updateField("location", event)}
+                      value={formValues.location}
+                    />
                   </FormField>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <FormField id="capture-role-type" label="Workplace type">
-                    <Select id="capture-role-type" onChange={(event) => updateField("roleType", event)} value={formValues.roleType}>
+                    <Select
+                      id="capture-role-type"
+                      onChange={(event) => updateField("roleType", event)}
+                      value={formValues.roleType}
+                    >
                       <option value="">Unknown</option>
                       <option value="remote">Remote</option>
                       <option value="hybrid">Hybrid</option>
@@ -794,7 +976,11 @@ export function CapturePageClient() {
                   </FormField>
                 </div>
                 <FormField id="capture-tags" label="Tags">
-                  <Input id="capture-tags" onChange={(event) => updateField("tagsText", event)} value={formValues.tagsText} />
+                  <Input
+                    id="capture-tags"
+                    onChange={(event) => updateField("tagsText", event)}
+                    value={formValues.tagsText}
+                  />
                 </FormField>
                 <FormField id="capture-description" label="Description">
                   <Textarea
@@ -829,7 +1015,10 @@ export function CapturePageClient() {
                 {mode === "review" ? "Edit before saving" : "Review draft"}
               </button>
               <button
-                className={cn(buttonVariants({ variant: "ghost" }), "text-muted-foreground")}
+                className={cn(
+                  buttonVariants({ variant: "ghost" }),
+                  "text-muted-foreground",
+                )}
                 onClick={resetForAnother}
                 type="button"
               >
