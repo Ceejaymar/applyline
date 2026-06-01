@@ -1,11 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 
-import {
-  captureDraftSchema,
-} from "@/features/capture/capture-draft-schema";
+import { captureDraftSchema } from "@/features/capture/capture-draft-schema";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
-import { captureDraftCorsHeaders, captureDraftOptionsResponse } from "./cors";
+import {
+  captureDraftJson,
+  captureDraftOptionsResponse,
+  isAllowedCaptureDraftOrigin,
+} from "./cors";
 
 const DRAFT_TTL_HOURS = 24;
 
@@ -28,18 +30,72 @@ function getDraftPayload(value: unknown) {
   return draft;
 }
 
-export function OPTIONS() {
-  return captureDraftOptionsResponse();
+function getBearerToken(request: NextRequest) {
+  const authorization = request.headers.get("authorization") ?? "";
+  const [scheme, token] = authorization.split(" ");
+
+  return scheme?.toLowerCase() === "bearer" && token ? token : undefined;
+}
+
+function validateCaptureDraftRequest(request: NextRequest) {
+  if (!isAllowedCaptureDraftOrigin(request)) {
+    return captureDraftJson(
+      request,
+      { error: "Origin is not allowed." },
+      { status: 403 },
+    );
+  }
+
+  const token = getBearerToken(request);
+
+  if (!token) {
+    return captureDraftJson(
+      request,
+      { error: "Missing authorization token." },
+      { status: 401 },
+    );
+  }
+
+  const expectedToken = process.env.EXTENSION_BEARER_TOKEN;
+
+  if (!expectedToken) {
+    return captureDraftJson(
+      request,
+      { error: "Capture draft API is not configured." },
+      { status: 500 },
+    );
+  }
+
+  if (token !== expectedToken) {
+    return captureDraftJson(
+      request,
+      { error: "Invalid authorization token." },
+      { status: 403 },
+    );
+  }
+
+  return undefined;
+}
+
+export function OPTIONS(request: NextRequest) {
+  return captureDraftOptionsResponse(request);
 }
 
 export async function POST(request: NextRequest) {
+  const validationResponse = validateCaptureDraftRequest(request);
+
+  if (validationResponse) {
+    return validationResponse;
+  }
+
   const body = await request.json().catch(() => undefined);
   const parsedDraft = captureDraftSchema.safeParse(getDraftPayload(body));
 
   if (!parsedDraft.success) {
-    return NextResponse.json(
+    return captureDraftJson(
+      request,
       { error: "Invalid capture draft." },
-      { headers: captureDraftCorsHeaders, status: 400 },
+      { status: 400 },
     );
   }
 
@@ -52,14 +108,12 @@ export async function POST(request: NextRequest) {
   });
 
   if (error) {
-    return NextResponse.json(
+    return captureDraftJson(
+      request,
       { error: "Could not create capture draft." },
-      { headers: captureDraftCorsHeaders, status: 500 },
+      { status: 500 },
     );
   }
 
-  return NextResponse.json(
-    { draftId: token },
-    { headers: captureDraftCorsHeaders },
-  );
+  return captureDraftJson(request, { draftId: token });
 }

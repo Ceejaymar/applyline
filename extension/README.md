@@ -21,6 +21,14 @@ npm run typecheck:extension
 
 The build output is written to `extension/dist`.
 
+The extension build must include the MVP capture draft bearer token:
+
+```bash
+VITE_EXTENSION_BEARER_TOKEN=... npm run build:extension
+```
+
+Set the same value as `EXTENSION_BEARER_TOKEN` on the Applyline server. This is an abuse barrier for the MVP, not full user authentication.
+
 ## Load In Chrome
 
 1. Open `chrome://extensions`.
@@ -84,5 +92,6 @@ The extension uses a short-lived server draft:
 - It uses `activeTab` and `scripting` instead of broad `<all_urls>` host permissions.
 - Drafts are temporary and stored server-side under random `draftId` tokens.
 - The extension does not receive Supabase or Brandfetch secret keys.
+- The extension sends an MVP bearer token to create capture drafts; it should be replaced with user auth later.
 - Applyline does not save the draft until you confirm on the `/capture` review screen.
 - Description text is treated as plain text. The app does not execute HTML from job pages.

@@ -285,9 +285,28 @@ async function fetchCaptureDraft(draftId: string, signal?: AbortSignal) {
 }
 
 async function consumeCaptureDraft(draftId: string) {
-  await fetch(`/api/capture-drafts/${encodeURIComponent(draftId)}/consume`, {
-    method: "POST",
-  }).catch(() => undefined);
+  const response = await fetch(
+    `/api/capture-drafts/${encodeURIComponent(draftId)}/consume`,
+    {
+      method: "POST",
+    },
+  );
+  const bodyText = await response.text().catch(() => "");
+
+  if (!response.ok) {
+    if (process.env.NODE_ENV === "development") {
+      console.warn("[CapturePage] capture draft cleanup failed", {
+        bodyText,
+        status: response.status,
+      });
+    }
+
+    throw new Error(
+      "Job saved, but the temporary capture draft could not be cleaned up.",
+    );
+  }
+
+  return bodyText ? JSON.parse(bodyText) : { ok: true };
 }
 
 function getDraftStringLength(draft: unknown, field: string) {
@@ -654,13 +673,27 @@ export function CapturePageClient() {
       setSavedJobTitle(job.title);
       setMode("success");
 
+      let toastMessage = "Job added to Applyline";
+
       if (activeDraftId) {
-        await consumeCaptureDraft(activeDraftId);
+        try {
+          await consumeCaptureDraft(activeDraftId);
+        } catch (cleanupError) {
+          toastMessage =
+            "Job saved, but the temporary capture draft could not be cleaned up.";
+
+          if (process.env.NODE_ENV === "development") {
+            console.warn(
+              "[CapturePage] createJob succeeded but cleanup failed",
+              cleanupError,
+            );
+          }
+        }
       }
 
       sessionStorage.setItem(
         "applyline:toast",
-        JSON.stringify({ type: "success", message: "Job added to Applyline" }),
+        JSON.stringify({ type: "success", message: toastMessage }),
       );
       router.replace("/");
     } catch (error) {

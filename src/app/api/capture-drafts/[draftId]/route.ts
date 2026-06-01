@@ -1,10 +1,8 @@
-import { NextResponse } from "next/server";
-
 import { captureDraftSchema } from "@/features/capture/capture-draft-schema";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 import {
-  captureDraftCorsHeaders,
+  captureDraftJson,
   captureDraftOptionsResponse,
 } from "../cors";
 
@@ -22,17 +20,18 @@ function isExpired(value: string) {
   return new Date(value).getTime() <= Date.now();
 }
 
-export function OPTIONS() {
-  return captureDraftOptionsResponse();
+export function OPTIONS(request: Request) {
+  return captureDraftOptionsResponse(request);
 }
 
-export async function GET(_request: Request, context: RouteContext) {
+export async function GET(request: Request, context: RouteContext) {
   const { draftId } = await context.params;
 
   if (!draftId) {
-    return NextResponse.json(
+    return captureDraftJson(
+      request,
       { error: "Capture draft was not found." },
-      { headers: captureDraftCorsHeaders, status: 404 },
+      { status: 404 },
     );
   }
 
@@ -42,33 +41,41 @@ export async function GET(_request: Request, context: RouteContext) {
     .eq("token", draftId)
     .maybeSingle();
 
-  if (error || !data) {
-    return NextResponse.json(
+  if (error) {
+    return captureDraftJson(
+      request,
+      { error: "Could not load capture draft." },
+      { status: 500 },
+    );
+  }
+
+  if (!data) {
+    return captureDraftJson(
+      request,
       { error: "Capture draft was not found." },
-      { headers: captureDraftCorsHeaders, status: 404 },
+      { status: 404 },
     );
   }
 
   const row = data as CaptureDraftRow;
 
   if (row.consumed_at || isExpired(row.expires_at)) {
-    return NextResponse.json(
+    return captureDraftJson(
+      request,
       { error: "Capture draft has expired or was already used." },
-      { headers: captureDraftCorsHeaders, status: 410 },
+      { status: 410 },
     );
   }
 
   const parsedDraft = captureDraftSchema.safeParse(row.draft);
 
   if (!parsedDraft.success) {
-    return NextResponse.json(
+    return captureDraftJson(
+      request,
       { error: "Capture draft could not be read." },
-      { headers: captureDraftCorsHeaders, status: 410 },
+      { status: 410 },
     );
   }
 
-  return NextResponse.json(
-    { draft: parsedDraft.data },
-    { headers: captureDraftCorsHeaders },
-  );
+  return captureDraftJson(request, { draft: parsedDraft.data });
 }

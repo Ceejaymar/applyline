@@ -13,9 +13,6 @@ create table if not exists public.capture_drafts (
   source text not null default 'chrome-extension'
 );
 
-create index if not exists capture_drafts_token_idx
-  on public.capture_drafts (token);
-
 create index if not exists capture_drafts_expires_at_idx
   on public.capture_drafts (expires_at);
 

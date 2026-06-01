@@ -30,9 +30,18 @@ async function openOrFocusCapturePage(baseUrl: string, draftId: string, sourceTa
 }
 
 async function createCaptureDraft(baseUrl: string, draft: ApplylineJobDraft) {
+  const bearerToken = import.meta.env.VITE_EXTENSION_BEARER_TOKEN;
+
+  if (!bearerToken) {
+    throw new Error("Missing Applyline extension bearer token.");
+  }
+
   const response = await fetch(`${baseUrl}/api/capture-drafts`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      Authorization: `Bearer ${bearerToken}`,
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify({ draft }),
   });
   const body = await response.json().catch(() => null);

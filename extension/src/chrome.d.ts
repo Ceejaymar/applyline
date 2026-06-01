@@ -10,6 +10,7 @@ type ChromeMessageSender = {
 
 interface ImportMetaEnv {
   readonly DEV: boolean;
+  readonly VITE_EXTENSION_BEARER_TOKEN?: string;
 }
 
 interface ImportMeta {
