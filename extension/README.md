@@ -21,6 +21,14 @@ npm run typecheck:extension
 
 The build output is written to `extension/dist`.
 
+The extension build must include the MVP capture draft bearer token:
+
+```bash
+VITE_EXTENSION_BEARER_TOKEN=... npm run build:extension
+```
+
+Set the same value as `EXTENSION_BEARER_TOKEN` on the Applyline server. This is an abuse barrier for the MVP, not full user authentication.
+
 ## Load In Chrome
 
 1. Open `chrome://extensions`.
@@ -57,19 +65,18 @@ npm run dev
 5. The extension opens `https://applyline.vercel.app/capture?draftId=<draftId>`.
 6. Review the job in Applyline and click **Save job**.
 
-## How The Bridge Works
+## How Capture Drafts Work
 
 Applyline stores data in IndexedDB on the Applyline origin. A content script running on a job site cannot write to that database directly.
 
-The extension uses a small bridge:
+The extension uses a short-lived server draft:
 
 1. The overlay validates the editable draft.
-2. The background service worker stores the draft temporarily in `chrome.storage.local` with a generated `draftId`.
-3. Chrome opens or focuses `/capture?draftId=<draftId>` on the selected Applyline target.
-4. `content/capture-bridge.js` runs only on Applyline `/capture*` pages.
-5. The bridge reads the draft from extension storage and posts it into the Applyline page with `window.postMessage`.
-6. Applyline validates the draft and shows the review screen.
-7. After the user saves, Applyline posts a saved acknowledgement and the bridge clears the temporary draft from extension storage.
+2. The background service worker posts the draft to `/api/capture-drafts` on the selected Applyline target.
+3. The server stores the draft temporarily and returns a random `draftId` token.
+4. Chrome opens or focuses `/capture?draftId=<draftId>`.
+5. Applyline fetches the draft from `/api/capture-drafts/<draftId>`, validates it, and shows the review screen.
+6. After the user saves, Applyline marks the temporary draft consumed.
 
 ## Known Limitations
 
@@ -83,9 +90,8 @@ The extension uses a small bridge:
 
 - The extension extracts page data only after you click the extension icon.
 - It uses `activeTab` and `scripting` instead of broad `<all_urls>` host permissions.
-- The Applyline capture bridge runs only on:
-  - `https://applyline.vercel.app/capture*`
-  - `http://localhost:3000/capture*`
-- Drafts are temporary and stored under generated `draftId` keys in extension storage.
+- Drafts are temporary and stored server-side under random `draftId` tokens.
+- The extension does not receive Supabase or Brandfetch secret keys.
+- The extension sends an MVP bearer token to create capture drafts; it should be replaced with user auth later.
 - Applyline does not save the draft until you confirm on the `/capture` review screen.
 - Description text is treated as plain text. The app does not execute HTML from job pages.

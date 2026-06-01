@@ -27,53 +27,22 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { CompanyAutocomplete } from "@/features/companies/company-autocomplete";
+import {
+  captureDraftSchema,
+  DESCRIPTION_LIMIT,
+  type CaptureDraft,
+} from "@/features/capture/capture-draft-schema";
 import { findPossibleDuplicateJob } from "@/features/jobs/job-helpers";
 import { createJob, findOrCreateSourceByName } from "@/lib/db";
 import {
   DEFAULT_COLUMN_IDS,
   DEFAULT_SOURCE_IDS,
   type CompanyBrandMetadata,
-  roleTypeSchema,
   type Source,
 } from "@/lib/schemas";
 import { useBoardData, type BoardJob } from "@/lib/use-jobs";
 import { cn } from "@/lib/utils";
 
-const DESCRIPTION_LIMIT = 50_000;
-
-const extensionMessageSchema = z.object({
-  source: z.literal("applyline-extension"),
-  type: z.literal("APPLYLINE_JOB_DRAFT"),
-  draftId: z.string().min(1),
-  draft: z.unknown(),
-});
-
-const missingDraftMessageSchema = z.object({
-  source: z.literal("applyline-extension"),
-  type: z.literal("APPLYLINE_JOB_DRAFT_MISSING"),
-  draftId: z.string().min(1),
-});
-
-const captureDraftSchema = z.object({
-  title: z.string().trim().min(1, "Role is required").max(180),
-  companyName: z.string().trim().min(1, "Company is required").max(180),
-  link: z.string().trim().url("Enter a valid URL").optional().or(z.literal("")),
-  url: z.string().trim().url("Enter a valid URL").optional().or(z.literal("")),
-  sourceId: z.string().trim().optional(),
-  sourceName: z.string().trim().max(80).optional(),
-  location: z.string().trim().max(180).optional(),
-  roleType: roleTypeSchema.optional(),
-  workplaceType: z.enum(["remote", "hybrid", "onsite", "unknown"]).optional(),
-  compensation: z.string().trim().max(240).optional(),
-  description: z.string().trim().max(DESCRIPTION_LIMIT).optional(),
-  notes: z.string().trim().max(DESCRIPTION_LIMIT).optional(),
-  tags: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
-  capturedAt: z.string().datetime().optional(),
-  extractedAt: z.string().datetime().optional(),
-  extractionConfidence: z.enum(["high", "medium", "low"]).optional(),
-});
-
-type CaptureDraft = z.infer<typeof captureDraftSchema>;
 type CaptureMode =
   | "waiting"
   | "review"
@@ -270,21 +239,74 @@ function getDraftIdFromQuery() {
   return new URLSearchParams(window.location.search).get("draftId");
 }
 
-function postBridgeMessage(
-  type:
-    | "APPLYLINE_CAPTURE_READY"
-    | "APPLYLINE_CAPTURE_RECEIVED"
-    | "APPLYLINE_CAPTURE_SAVED",
-  draftId: string,
-) {
-  window.postMessage(
-    {
-      source: "applyline-app",
-      type,
-      draftId,
-    },
-    window.location.origin,
+function captureDebugLog(message: string, data?: Record<string, unknown>) {
+  let isEnabled = process.env.NODE_ENV === "development";
+
+  try {
+    isEnabled =
+      isEnabled ||
+      new URLSearchParams(window.location.search).has("captureDebug") ||
+      window.localStorage.getItem("applyline:capture-debug") === "true";
+  } catch {
+    // Ignore storage/query access failures; debug logging is optional.
+  }
+
+  if (!isEnabled) {
+    return;
+  }
+
+  console.info(`[Applyline Capture] ${message}`, data ?? {});
+}
+
+async function fetchCaptureDraft(draftId: string, signal?: AbortSignal) {
+  const response = await fetch(
+    `/api/capture-drafts/${encodeURIComponent(draftId)}`,
+    { signal },
   );
+  const body = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const fallbackMessage =
+      response.status === 410
+        ? "This capture draft has expired or was already saved."
+        : "This capture draft could not be found.";
+    throw new Error(
+      typeof body?.error === "string" ? body.error : fallbackMessage,
+    );
+  }
+
+  const parsedDraft = captureDraftSchema.safeParse(body?.draft);
+
+  if (!parsedDraft.success) {
+    throw new Error("The capture draft could not be read.");
+  }
+
+  return parsedDraft.data;
+}
+
+async function consumeCaptureDraft(draftId: string) {
+  const response = await fetch(
+    `/api/capture-drafts/${encodeURIComponent(draftId)}/consume`,
+    {
+      method: "POST",
+    },
+  );
+  const bodyText = await response.text().catch(() => "");
+
+  if (!response.ok) {
+    if (process.env.NODE_ENV === "development") {
+      console.warn("[CapturePage] capture draft cleanup failed", {
+        bodyText,
+        status: response.status,
+      });
+    }
+
+    throw new Error(
+      "Job saved, but the temporary capture draft could not be cleaned up.",
+    );
+  }
+
+  return bodyText ? JSON.parse(bodyText) : { ok: true };
 }
 
 function getDraftStringLength(draft: unknown, field: string) {
@@ -402,8 +424,8 @@ export function CapturePageClient() {
   const [savedJobTitle, setSavedJobTitle] = useState("");
   const [duplicateJob, setDuplicateJob] = useState<BoardJob | null>(null);
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
-  const [hasWaitedForDraft, setHasWaitedForDraft] = useState(false);
   const hasReadHashRef = useRef(false);
+  const hasLoadedDraftRef = useRef(false);
   const defaultColumnId =
     columns.find((column) => column.id === DEFAULT_COLUMN_IDS.wishlist)?.id ??
     columns[0]?.id ??
@@ -412,6 +434,54 @@ export function CapturePageClient() {
     () => sources.find((source) => source.id === formValues?.sourceId),
     [formValues?.sourceId, sources],
   );
+
+  useEffect(() => {
+    captureDebugLog("capture mounted", {
+      queryDraftId: getDraftIdFromQuery(),
+    });
+  }, []);
+
+  useEffect(() => {
+    captureDebugLog("mode transition", {
+      activeDraftId,
+      hasFormValues: Boolean(formValues),
+      mode,
+    });
+  }, [activeDraftId, formValues, mode]);
+
+  async function loadServerDraft(draftId: string, signal?: AbortSignal) {
+    setActiveDraftId(draftId);
+    setMode("waiting");
+    setMessage("Loading draft from Applyline.");
+    setDuplicateJob(null);
+
+    try {
+      const draft = await fetchCaptureDraft(draftId, signal);
+
+      if (signal?.aborted) {
+        return;
+      }
+
+      captureDebugLog("server draft loaded", {
+        descriptionLength: getDraftStringLength(draft, "description"),
+        draftId,
+      });
+      hasLoadedDraftRef.current = true;
+      setFormValues(toFormValues(draft, sources, defaultColumnId));
+      setMode("review");
+    } catch (error) {
+      if (signal?.aborted) {
+        return;
+      }
+
+      setMode("error");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "The capture draft could not be loaded.",
+      );
+    }
+  }
 
   useEffect(() => {
     if (isLoading || hasReadHashRef.current) {
@@ -424,20 +494,29 @@ export function CapturePageClient() {
       const draft = getDraftFromHash();
       const queryDraftId = getDraftIdFromQuery();
 
-      if (queryDraftId) {
-        setActiveDraftId(queryDraftId);
-        setMessage("Loading draft from the Applyline extension.");
+      captureDebugLog("capture inputs read", {
+        hasHashDraft: Boolean(draft),
+        queryDraftId,
+      });
+
+      if (draft) {
+        hasLoadedDraftRef.current = true;
+        setFormValues(toFormValues(draft, sources, defaultColumnId));
+        setMode("review");
+        setActiveDraftId(null);
+        window.history.replaceState(null, "", "/capture");
+        return;
       }
 
-      if (!draft) {
+      if (!queryDraftId) {
         setMode("waiting");
         return;
       }
 
-      setFormValues(toFormValues(draft, sources, defaultColumnId));
-      setMode("review");
-      setActiveDraftId(null);
-      window.history.replaceState(null, "", "/capture");
+      const abortController = new AbortController();
+      void loadServerDraft(queryDraftId, abortController.signal);
+
+      return () => abortController.abort();
     } catch (error) {
       setMode("error");
       setMessage(
@@ -450,88 +529,13 @@ export function CapturePageClient() {
     }
   }, [defaultColumnId, isLoading, sources]);
 
-  useEffect(() => {
-    function onMessage(event: MessageEvent<unknown>) {
-      if (event.source !== window) {
-        return;
-      }
-
-      // Extension content scripts that run on the Applyline origin can post this
-      // exact envelope. Unknown message shapes and cross-window messages are ignored.
-      const parsedMessage = extensionMessageSchema.safeParse(event.data);
-
-      if (!parsedMessage.success) {
-        const missingDraftMessage = missingDraftMessageSchema.safeParse(
-          event.data,
-        );
-
-        if (missingDraftMessage.success) {
-          setActiveDraftId(missingDraftMessage.data.draftId);
-          setMode("error");
-          setMessage(
-            `The extension draft "${missingDraftMessage.data.draftId}" could not be found. Rebuild/reload the extension, then try capturing the job again.`,
-          );
-        }
-
-        return;
-      }
-
-      const parsedDraft = captureDraftSchema.safeParse(
-        parsedMessage.data.draft,
-      );
-
-      if (!parsedDraft.success) {
-        setMode("error");
-        setMessage(
-          formatZodIssues(parsedDraft.error, parsedMessage.data.draft),
-        );
-        return;
-      }
-
-      setFormValues(toFormValues(parsedDraft.data, sources, defaultColumnId));
-      setActiveDraftId(parsedMessage.data.draftId);
-      setHasWaitedForDraft(false);
-      setDuplicateJob(null);
-      setMode("review");
-      postBridgeMessage(
-        "APPLYLINE_CAPTURE_RECEIVED",
-        parsedMessage.data.draftId,
-      );
-    }
-
-    window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
-  }, [defaultColumnId, sources]);
-
-  useEffect(() => {
-    if (!activeDraftId || mode !== "waiting") {
-      return;
-    }
-
-    postBridgeMessage("APPLYLINE_CAPTURE_READY", activeDraftId);
-  }, [activeDraftId, mode]);
-
-  useEffect(() => {
-    if (!activeDraftId || mode !== "waiting") {
-      setHasWaitedForDraft(false);
-      return;
-    }
-
-    setHasWaitedForDraft(false);
-    const timeoutId = window.setTimeout(() => {
-      setHasWaitedForDraft(true);
-    }, 5_000);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [activeDraftId, mode]);
-
   function retryDraftLoad() {
     if (!activeDraftId) {
       return;
     }
 
-    setHasWaitedForDraft(false);
-    postBridgeMessage("APPLYLINE_CAPTURE_READY", activeDraftId);
+    captureDebugLog("server draft retry requested", { draftId: activeDraftId });
+    void loadServerDraft(activeDraftId);
   }
 
   function updateField(
@@ -669,13 +673,27 @@ export function CapturePageClient() {
       setSavedJobTitle(job.title);
       setMode("success");
 
+      let toastMessage = "Job added to Applyline";
+
       if (activeDraftId) {
-        postBridgeMessage("APPLYLINE_CAPTURE_SAVED", activeDraftId);
+        try {
+          await consumeCaptureDraft(activeDraftId);
+        } catch (cleanupError) {
+          toastMessage =
+            "Job saved, but the temporary capture draft could not be cleaned up.";
+
+          if (process.env.NODE_ENV === "development") {
+            console.warn(
+              "[CapturePage] createJob succeeded but cleanup failed",
+              cleanupError,
+            );
+          }
+        }
       }
 
       sessionStorage.setItem(
         "applyline:toast",
-        JSON.stringify({ type: "success", message: "Job added to Applyline" }),
+        JSON.stringify({ type: "success", message: toastMessage }),
       );
       router.replace("/");
     } catch (error) {
@@ -691,6 +709,7 @@ export function CapturePageClient() {
     setSavedJobTitle("");
     setDuplicateJob(null);
     setActiveDraftId(null);
+    hasLoadedDraftRef.current = false;
     setMode("waiting");
     setMessage(
       "Open a job posting and use the Applyline extension to capture another draft.",
@@ -741,7 +760,7 @@ export function CapturePageClient() {
               <div className="grid gap-1">
                 <h1 className="text-xl font-semibold">Capture a job</h1>
                 <p className="text-sm text-muted-foreground">{message}</p>
-                {activeDraftId && hasWaitedForDraft ? (
+                {activeDraftId ? (
                   <p className="text-sm font-medium">
                     Still waiting for the extension draft.
                   </p>
@@ -859,25 +878,32 @@ export function CapturePageClient() {
             ) : null}
 
             {mode === "review" ? (
-              <dl className="grid gap-5 sm:grid-cols-2">
-                <Field label="Title" value={formValues.title} />
-                <Field label="Company" value={formValues.companyName} />
-                <Field label="URL" value={formValues.link} />
-                <Field
-                  label="Source"
-                  value={selectedSource?.name ?? formValues.sourceName}
-                />
-                <Field label="Location" value={formValues.location} />
-                <Field
-                  label="Workplace type"
-                  value={formatRoleType(formValues.roleType)}
-                />
-                <Field label="Compensation" value={formValues.compensation} />
-                <Field label="Tags" value={formValues.tagsText} />
-                <div className="sm:col-span-2">
-                  <Field label="Description" value={formValues.description} />
-                </div>
-              </dl>
+              <div className="grid gap-4">
+                {!formValues.companyMetadata ? (
+                  <p className="rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                    Company branding not selected yet.
+                  </p>
+                ) : null}
+                <dl className="grid gap-5 sm:grid-cols-2">
+                  <Field label="Title" value={formValues.title} />
+                  <Field label="Company" value={formValues.companyName} />
+                  <Field label="URL" value={formValues.link} />
+                  <Field
+                    label="Source"
+                    value={selectedSource?.name ?? formValues.sourceName}
+                  />
+                  <Field label="Location" value={formValues.location} />
+                  <Field
+                    label="Workplace type"
+                    value={formatRoleType(formValues.roleType)}
+                  />
+                  <Field label="Compensation" value={formValues.compensation} />
+                  <Field label="Tags" value={formValues.tagsText} />
+                  <div className="sm:col-span-2">
+                    <Field label="Description" value={formValues.description} />
+                  </div>
+                </dl>
+              </div>
             ) : (
               <form
                 className="grid gap-5"

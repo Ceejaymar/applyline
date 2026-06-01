@@ -11,15 +11,5 @@
   "background": {
     "service_worker": "background.js",
     "type": "module"
-  },
-  "content_scripts": [
-    {
-      "matches": [
-        "https://applyline.vercel.app/*",
-        "http://localhost:3000/*"
-      ],
-      "js": ["content/capture-bridge.js"],
-      "run_at": "document_start"
-    }
-  ]
+  }
 }
