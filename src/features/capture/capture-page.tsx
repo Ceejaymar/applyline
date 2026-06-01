@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FocusEvent,
+} from "react";
 import { CheckCircle2, Loader2, Pencil, Plus, Save, TriangleAlert, X } from "lucide-react";
 import { z } from "zod";
 
@@ -11,11 +18,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { CompanyAutocomplete } from "@/features/companies/company-autocomplete";
 import { findPossibleDuplicateJob } from "@/features/jobs/job-helpers";
 import { createJob, findOrCreateSourceByName } from "@/lib/db";
 import {
   DEFAULT_COLUMN_IDS,
   DEFAULT_SOURCE_IDS,
+  type CompanyBrandMetadata,
   roleTypeSchema,
   type Source,
 } from "@/lib/schemas";
@@ -62,6 +71,8 @@ type CaptureMode = "waiting" | "review" | "edit" | "saving" | "success" | "error
 
 type FormValues = {
   title: string;
+  companyId: string;
+  companyMetadata?: CompanyBrandMetadata;
   companyName: string;
   link: string;
   sourceId: string;
@@ -178,6 +189,8 @@ function toFormValues(draft: CaptureDraft, sources: Source[], defaultColumnId: s
 
   return {
     title: draft.title,
+    companyId: "",
+    companyMetadata: undefined,
     companyName: draft.companyName,
     link: draft.link ?? draft.url ?? "",
     sourceId: matchedSource?.id ?? matchedSourceByName?.id ?? "",
@@ -320,7 +333,7 @@ function DuplicateWarning({
 
 export function CapturePageClient() {
   const router = useRouter();
-  const { columns, error: boardError, isLoading, jobs, sources } = useBoardData();
+  const { columns, companies, error: boardError, isLoading, jobs, sources } = useBoardData();
   const [mode, setMode] = useState<CaptureMode>("waiting");
   const [message, setMessage] = useState("Waiting for a job draft from the extension.");
   const [formValues, setFormValues] = useState<FormValues | null>(null);
@@ -417,11 +430,56 @@ export function CapturePageClient() {
   }, [defaultColumnId, sources]);
 
   function updateField(
-    key: keyof FormValues,
+    key: Exclude<keyof FormValues, "companyMetadata">,
     event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
   ) {
     setFormValues((values) => (values ? { ...values, [key]: event.target.value } : values));
   }
+
+  const companyAutocompleteForm = useMemo(
+    () => ({
+      getValues: (name: "companyName") => formValues?.[name] ?? "",
+      register: (name: "companyName") => ({
+        name,
+        onBlur: (_event: FocusEvent<HTMLInputElement>) => undefined,
+        onChange: (event: ChangeEvent<HTMLInputElement>) => {
+          const nextValue = event.target.value;
+          setFormValues((values) =>
+            values ?
+              {
+                ...values,
+                companyId: "",
+                companyMetadata: undefined,
+                [name]: nextValue,
+              }
+            : values,
+          );
+        },
+        value: formValues?.companyName ?? "",
+      }),
+      setValue: (
+        name: "companyName" | "companyId" | "companyMetadata",
+        value: string | CompanyBrandMetadata | undefined,
+      ) => {
+        setFormValues((values) => {
+          if (!values) {
+            return values;
+          }
+
+          if (name === "companyMetadata") {
+            return {
+              ...values,
+              companyMetadata: value as CompanyBrandMetadata | undefined,
+            };
+          }
+
+          return { ...values, [name]: value as string };
+        });
+      },
+      watch: (name: "companyName") => formValues?.[name] ?? "",
+    }),
+    [formValues],
+  );
 
   async function resolveSourceId(values: FormValues) {
     if (values.sourceId) {
@@ -478,7 +536,9 @@ export function CapturePageClient() {
         : "Created from Applyline Clipper.";
       const job = await createJob({
         title: formValues.title,
+        companyId: emptyToUndefined(formValues.companyId),
         companyName: formValues.companyName,
+        companyMetadata: formValues.companyMetadata,
         columnId: formValues.columnId || DEFAULT_COLUMN_IDS.wishlist,
         sourceId,
         link: formValues.link.trim(),
@@ -667,11 +727,10 @@ export function CapturePageClient() {
                     />
                   </FormField>
                   <FormField id="capture-company" label="Company">
-                    <Input
-                      id="capture-company"
-                      onChange={(event) => updateField("companyName", event)}
-                      required
-                      value={formValues.companyName}
+                    <CompanyAutocomplete
+                      companies={companies}
+                      form={companyAutocompleteForm}
+                      inputId="capture-company"
                     />
                   </FormField>
                 </div>

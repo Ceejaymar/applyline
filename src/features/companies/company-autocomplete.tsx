@@ -1,7 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
-import type { UseFormReturn } from "react-hook-form";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ChangeEvent,
+  type FocusEvent,
+  type KeyboardEvent,
+} from "react";
 import { Building2, Loader2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -19,13 +25,29 @@ import type {
   CompanyBrandSource,
   CompanyBrandSuggestion,
 } from "@/features/companies/company-brand.types";
-import type { JobFormValues } from "@/features/jobs/job-form-schema";
 import { cn } from "@/lib/utils";
-import type { Company } from "@/lib/schemas";
+import type { Company, CompanyBrandMetadata } from "@/lib/schemas";
+
+type CompanyAutocompleteForm = {
+  getValues: (name: "companyName") => string;
+  register: (name: "companyName") => {
+    name?: string;
+    onBlur: (event: FocusEvent<HTMLInputElement>) => unknown;
+    onChange: (event: ChangeEvent<HTMLInputElement>) => unknown;
+    ref?: (instance: HTMLInputElement | null) => void;
+    value?: string;
+  };
+  setValue: (
+    name: "companyName" | "companyId" | "companyMetadata",
+    value: string | CompanyBrandMetadata | undefined,
+    options?: { shouldDirty?: boolean; shouldValidate?: boolean },
+  ) => void;
+  watch: (name: "companyName") => string;
+};
 
 type CompanyAutocompleteProps = {
   companies: Company[];
-  form: UseFormReturn<JobFormValues>;
+  form: CompanyAutocompleteForm;
   inputId: string;
 };
 
