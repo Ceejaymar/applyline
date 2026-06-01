@@ -9,6 +9,7 @@ type JobTimestampLike = {
 const minuteMs = 60_000;
 const hourMs = 60 * minuteMs;
 const dayMs = 24 * hourMs;
+const maxJobCardRelativeDays = 30;
 const safeDateFallback = "—";
 
 function toDate(value: DateInput) {
@@ -155,6 +156,10 @@ function formatJobCardRelativeTime(value: DateInput, now: Date = new Date()): st
 
   if (elapsedMs < 7 * dayMs) {
     return formatRelativeTime(date, now);
+  }
+
+  if (elapsedMs >= maxJobCardRelativeDays * dayMs) {
+    return formatReadableDate(date, now);
   }
 
   return pluralize(Math.floor(elapsedMs / dayMs), "day");
