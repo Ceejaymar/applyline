@@ -23,7 +23,6 @@ export default defineConfig({
     rollupOptions: {
       input: {
         background: resolve(__dirname, "src/background.ts"),
-        "content/capture-bridge": resolve(__dirname, "src/content/capture-bridge.ts"),
         "content/overlay": resolve(__dirname, "src/content/overlay.tsx"),
       },
       output: {

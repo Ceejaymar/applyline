@@ -1,22 +1,12 @@
-import { type ApplylineJobDraft, type ApplylineTarget, type SaveDraftMessage } from "./shared/job-draft";
-
-const DEFAULT_TARGET: ApplylineTarget = "production";
-const DRAFT_STORAGE_PREFIX = "applylineDraft:";
-const APPLYLINE_ORIGINS: Record<ApplylineTarget, string> = {
-  local: "http://localhost:3000",
-  production: "https://applyline.vercel.app",
-};
+import {
+  APPLYLINE_ORIGINS,
+  type ApplylineJobDraft,
+  type ApplylineTarget,
+  type SaveDraftMessage,
+} from "./shared/job-draft";
 
 async function getTargetBaseUrl(target: ApplylineTarget) {
-  return APPLYLINE_ORIGINS[target] ?? APPLYLINE_ORIGINS[DEFAULT_TARGET];
-}
-
-function createDraftId() {
-  return `draft_${crypto.randomUUID()}`;
-}
-
-function draftStorageKey(draftId: string) {
-  return `${DRAFT_STORAGE_PREFIX}${draftId}`;
+  return APPLYLINE_ORIGINS[target] ?? APPLYLINE_ORIGINS.production;
 }
 
 async function openOrFocusCapturePage(baseUrl: string, draftId: string, sourceTab?: ChromeTab) {
@@ -37,6 +27,29 @@ async function openOrFocusCapturePage(baseUrl: string, draftId: string, sourceTa
     openerTabId: sourceTab?.id,
     url: captureUrl,
   });
+}
+
+async function createCaptureDraft(baseUrl: string, draft: ApplylineJobDraft) {
+  const response = await fetch(`${baseUrl}/api/capture-drafts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ draft }),
+  });
+  const body = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(
+      typeof body?.error === "string"
+        ? body.error
+        : "Could not create Applyline capture draft.",
+    );
+  }
+
+  if (typeof body?.draftId !== "string" || !body.draftId) {
+    throw new Error("Applyline did not return a capture draft token.");
+  }
+
+  return body.draftId;
 }
 
 chrome.action.onClicked.addListener(async (tab) => {
@@ -86,26 +99,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   void (async () => {
     try {
       const baseUrl = await getTargetBaseUrl(message.target);
-      const draftId = createDraftId();
-      const storedDraft = message.draft;
+      const draft = message.draft;
 
       if (import.meta.env.DEV) {
-        console.info("[Applyline Clipper] storing draft", {
-          companyName: storedDraft.companyName,
-          descriptionLength: storedDraft.description?.length ?? 0,
-          draftId,
+        console.info("[Applyline Clipper] creating server capture draft", {
+          companyName: draft.companyName,
+          descriptionLength: draft.description?.length ?? 0,
           target: message.target,
-          title: storedDraft.title,
+          title: draft.title,
         });
       }
 
       await chrome.storage.local.set({
         applylineTarget: message.target,
-        [draftStorageKey(draftId)]: {
-          createdAt: new Date().toISOString(),
-          draft: storedDraft,
-        },
       });
+      const draftId = await createCaptureDraft(baseUrl, draft);
       await openOrFocusCapturePage(baseUrl, draftId, sender.tab);
       sendResponse({ ok: true, draftId });
     } catch (error) {
