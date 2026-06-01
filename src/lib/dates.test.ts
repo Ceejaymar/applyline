@@ -117,6 +117,12 @@ describe("getJobDisplayTimestamp", () => {
       "4d ago",
     );
   });
+
+  it("keeps older card timestamps relative instead of showing a date", () => {
+    expect(getJobDisplayTimestamp({ updatedAt: "2026-05-04T16:45:00" }, now)).toBe(
+      "9 days ago",
+    );
+  });
 });
 
 describe("getJobDisplayTimestampTitle", () => {
