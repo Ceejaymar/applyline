@@ -41,6 +41,7 @@ export function AddJobDialog({ columns, companies, jobs, sources }: AddJobDialog
   const openJob = useApplylineUiStore((state) => state.openJob);
   const [duplicateJob, setDuplicateJob] = useState<BoardJob | null>(null);
   const [pendingValues, setPendingValues] = useState<JobFormValues | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const form = useForm<JobFormValues>({
     resolver: zodResolver(jobFormSchema),
     defaultValues: emptyJobFormValues,
@@ -57,14 +58,25 @@ export function AddJobDialog({ columns, companies, jobs, sources }: AddJobDialog
     });
     setDuplicateJob(null);
     setPendingValues(null);
+    setSaveError(null);
   }, [columns, createColumnId, form, isCreateOpen]);
 
   async function saveJob(values: JobFormValues) {
-    const job = await createJob(toJobInput(values));
-    setDuplicateJob(null);
-    setPendingValues(null);
-    closeJob();
-    openJob(job.id);
+    const jobInput = toJobInput(values);
+
+    try {
+      setSaveError(null);
+      const job = await createJob(jobInput);
+      setDuplicateJob(null);
+      setPendingValues(null);
+      closeJob();
+      openJob(job.id);
+    } catch (error) {
+      if (process.env.NODE_ENV === "development") {
+        console.error("[AddJobDialog] createJob failed", error);
+      }
+      setSaveError("Could not save job. Please try again.");
+    }
   }
 
   async function onSubmit(values: JobFormValues) {
@@ -84,6 +96,10 @@ export function AddJobDialog({ columns, companies, jobs, sources }: AddJobDialog
     await saveJob(values);
   }
 
+  function onInvalid() {
+    setSaveError("Please check the highlighted fields before saving.");
+  }
+
   return (
     <Dialog open={isCreateOpen} onOpenChange={(open) => (!open ? closeJob() : undefined)}>
       <DialogContent className="w-[520px]">
@@ -91,7 +107,7 @@ export function AddJobDialog({ columns, companies, jobs, sources }: AddJobDialog
           <DialogTitle>Add application</DialogTitle>
           <DialogDescription>Track a role in your local board.</DialogDescription>
         </DialogHeader>
-        <form className="grid gap-5" onSubmit={form.handleSubmit(onSubmit)}>
+        <form className="grid gap-5" onSubmit={form.handleSubmit(onSubmit, onInvalid)}>
           {duplicateJob ? (
             <DuplicateJobWarning
               duplicateJob={duplicateJob}
@@ -103,6 +119,16 @@ export function AddJobDialog({ columns, companies, jobs, sources }: AddJobDialog
                 openJob(duplicateJob.id);
               }}
             />
+          ) : null}
+          {saveError ? (
+            <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {saveError}
+            </p>
+          ) : null}
+          {form.formState.errors.companyMetadata ? (
+            <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              Company metadata could not be saved. Select the company again or enter it manually.
+            </p>
           ) : null}
           <JobFormFields
             collapsible

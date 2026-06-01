@@ -176,6 +176,17 @@ export class ApplylineDatabase extends Dexie {
           );
         }
       });
+
+    this.version(4).stores({
+      activities: "id, jobId, type, createdAt, fromColumnId, toColumnId",
+      columns: "id, order, isDefault, updatedAt",
+      companies: "id, name, domain, brandfetchBrandId, updatedAt",
+      contacts: "id, name, email, companyId, updatedAt",
+      jobContacts: "id, jobId, contactId, [jobId+contactId], relationshipType",
+      jobs:
+        "id, companyId, columnId, sourceId, createdAt, updatedAt, appliedAt, rejectedAt, lastStatusChangedAt, archivedReason, position, *tags",
+      sources: "id, name, isDefault, updatedAt",
+    });
   }
 }
 

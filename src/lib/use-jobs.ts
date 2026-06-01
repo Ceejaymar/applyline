@@ -18,6 +18,10 @@ export type BoardJob = Job & {
   columnColor?: string;
   columnIcon?: string;
   columnName: string;
+  companyBrandColor?: string;
+  companyDomain?: string;
+  companyIconUrl?: string;
+  companyLogoUrl?: string;
   companyName: string;
   sourceIcon?: string;
   sourceName?: string;
@@ -85,15 +89,23 @@ export function useBoardData() {
           companies,
           contacts,
           jobContacts,
-          jobs: jobs.map((job) => ({
-            ...job,
-            columnColor: columnsById.get(job.columnId)?.color,
-            columnIcon: columnsById.get(job.columnId)?.icon,
-            columnName: columnsById.get(job.columnId)?.name ?? "Unknown",
-            companyName: companiesById.get(job.companyId)?.name ?? "Unknown company",
-            sourceIcon: job.sourceId ? sourcesById.get(job.sourceId)?.icon : undefined,
-            sourceName: job.sourceId ? sourcesById.get(job.sourceId)?.name : undefined,
-          })),
+          jobs: jobs.map((job) => {
+            const company = companiesById.get(job.companyId);
+
+            return {
+              ...job,
+              columnColor: columnsById.get(job.columnId)?.color,
+              columnIcon: columnsById.get(job.columnId)?.icon,
+              columnName: columnsById.get(job.columnId)?.name ?? "Unknown",
+              companyBrandColor: company?.brandColor,
+              companyDomain: company?.domain,
+              companyIconUrl: company?.iconUrl,
+              companyLogoUrl: company?.logoUrl,
+              companyName: company?.name ?? "Unknown company",
+              sourceIcon: job.sourceId ? sourcesById.get(job.sourceId)?.icon : undefined,
+              sourceName: job.sourceId ? sourcesById.get(job.sourceId)?.name : undefined,
+            };
+          }),
           sources,
         };
       }).subscribe({
