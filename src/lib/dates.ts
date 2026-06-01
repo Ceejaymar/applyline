@@ -9,6 +9,7 @@ type JobTimestampLike = {
 const minuteMs = 60_000;
 const hourMs = 60 * minuteMs;
 const dayMs = 24 * hourMs;
+const maxJobCardRelativeDays = 30;
 const safeDateFallback = "—";
 
 function toDate(value: DateInput) {
@@ -144,8 +145,28 @@ export function formatRelativeWithAbsoluteTime(value: DateInput, now: Date = new
   return `${formatRelativeTimeLong(date, now)} · ${formatAbsoluteDateTime(date, now)}`;
 }
 
+function formatJobCardRelativeTime(value: DateInput, now: Date = new Date()): string {
+  const date = toDate(value);
+
+  if (!date) {
+    return safeDateFallback;
+  }
+
+  const elapsedMs = Math.max(0, now.getTime() - date.getTime());
+
+  if (elapsedMs < 7 * dayMs) {
+    return formatRelativeTime(date, now);
+  }
+
+  if (elapsedMs >= maxJobCardRelativeDays * dayMs) {
+    return formatReadableDate(date, now);
+  }
+
+  return pluralize(Math.floor(elapsedMs / dayMs), "day");
+}
+
 export function getJobDisplayTimestamp(job: JobTimestampLike, now: Date = new Date()) {
-  return formatRelativeTime(getJobLatestTimestamp(job), now);
+  return formatJobCardRelativeTime(getJobLatestTimestamp(job), now);
 }
 
 export function getJobDisplayTimestampTitle(job: JobTimestampLike) {

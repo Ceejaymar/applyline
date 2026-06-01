@@ -6,7 +6,6 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
   captureDraftJson,
   captureDraftOptionsResponse,
-  isAllowedCaptureDraftOrigin,
 } from "./cors";
 
 const DRAFT_TTL_HOURS = 24;
@@ -38,12 +37,10 @@ function getBearerToken(request: NextRequest) {
 }
 
 function validateCaptureDraftRequest(request: NextRequest) {
-  if (!isAllowedCaptureDraftOrigin(request)) {
-    return captureDraftJson(
-      request,
-      { error: "Origin is not allowed." },
-      { status: 403 },
-    );
+  if (process.env.NODE_ENV === "development") {
+    console.info("[capture-drafts] request origin", {
+      origin: request.headers.get("origin") ?? "none",
+    });
   }
 
   const token = getBearerToken(request);
