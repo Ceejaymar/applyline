@@ -16,6 +16,22 @@ import {
 import { getDatabase } from "../client";
 import { createId, normalizeName, nowIso } from "../utils";
 
+function isAbsoluteHttpUrl(value?: string) {
+  if (!value) {
+    return false;
+  }
+
+  try {
+    const url = new URL(value);
+    return (
+      Boolean(url.hostname) &&
+      (url.protocol === "http:" || url.protocol === "https:")
+    );
+  } catch {
+    return false;
+  }
+}
+
 function compactMetadata(input?: CompanyBrandMetadata) {
   if (!input) {
     return {};
@@ -38,8 +54,10 @@ function compactMetadata(input?: CompanyBrandMetadata) {
 
   const websiteUrl = normalizeWebsiteUrl(metadata.websiteUrl ?? domain);
 
-  if (websiteUrl) {
+  if (websiteUrl && isAbsoluteHttpUrl(websiteUrl)) {
     metadata.websiteUrl = websiteUrl;
+  } else {
+    delete metadata.websiteUrl;
   }
 
   if (!metadata.logoUrl && domain) {
@@ -54,8 +72,10 @@ function compactMetadata(input?: CompanyBrandMetadata) {
     delete metadata.brandColor;
   }
 
-  if (metadata.websiteUrl) {
+  if (isAbsoluteHttpUrl(metadata.websiteUrl)) {
     metadata.website = metadata.websiteUrl;
+  } else {
+    delete metadata.website;
   }
 
   return metadata;

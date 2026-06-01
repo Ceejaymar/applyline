@@ -85,8 +85,22 @@ function postDraftToPage(draftId: string, draft: unknown, reason: string) {
   );
 }
 
+function postMissingDraftToPage(draftId: string, reason: string) {
+  debugLog("posting APPLYLINE_JOB_DRAFT_MISSING", { draftId, reason });
+
+  window.postMessage(
+    {
+      source: "applyline-extension",
+      type: "APPLYLINE_JOB_DRAFT_MISSING",
+      draftId,
+    },
+    window.location.origin,
+  );
+}
+
 let currentDraft: unknown;
 let currentDraftId: string | undefined;
+let missingDraftId: string | undefined;
 let retryIntervalId: number | undefined;
 let retryStartedAt = 0;
 let hasCaptureReceived = false;
@@ -101,6 +115,7 @@ function stopPostingDraft() {
 function startPostingDraft(draftId: string, draft: unknown) {
   currentDraft = draft;
   currentDraftId = draftId;
+  missingDraftId = undefined;
   hasCaptureReceived = false;
   retryStartedAt = Date.now();
   stopPostingDraft();
@@ -158,14 +173,8 @@ async function loadDraft() {
       return;
     }
 
-    window.postMessage(
-      {
-        source: "applyline-extension",
-        type: "APPLYLINE_JOB_DRAFT_MISSING",
-        draftId,
-      },
-      window.location.origin,
-    );
+    missingDraftId = draftId;
+    postMissingDraftToPage(draftId, "initial");
   });
 }
 
@@ -185,6 +194,8 @@ window.addEventListener("message", (event: MessageEvent<unknown>) => {
       !hasCaptureReceived
     ) {
       postDraftToPage(message.draftId, currentDraft, "ready");
+    } else if (missingDraftId === message.draftId) {
+      postMissingDraftToPage(message.draftId, "ready");
     }
 
     return;
@@ -200,6 +211,9 @@ window.addEventListener("message", (event: MessageEvent<unknown>) => {
   debugLog("received APPLYLINE_CAPTURE_SAVED", { draftId: message.draftId });
   hasCaptureReceived = true;
   stopPostingDraft();
+  if (missingDraftId === message.draftId) {
+    missingDraftId = undefined;
+  }
   const storageKey = draftStorageKey(message.draftId);
 
   void chrome.storage.local.remove(storageKey).then(() => {

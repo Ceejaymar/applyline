@@ -62,8 +62,11 @@ function scoreColorPath(pathText: string) {
   return 1;
 }
 
-function collectColorCandidates(value: unknown, path: string[] = []): ColorCandidate[] {
-  const pathText = path.join(".").toLocaleLowerCase();
+function collectColorCandidates(
+  value: unknown,
+  path: string[] = [],
+): ColorCandidate[] {
+  const pathText = path.join(".").toLowerCase();
 
   if (typeof value === "string") {
     const color = normalizeHexColor(value);
@@ -121,7 +124,9 @@ function extractBrandId(brand: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
-async function fetchBrandfetchBrand(domain: string): Promise<BrandfetchBrandResult> {
+async function fetchBrandfetchBrand(
+  domain: string,
+): Promise<BrandfetchBrandResult> {
   const apiKey = process.env.BRANDFETCH_API_KEY;
 
   if (!apiKey) {
@@ -129,14 +134,17 @@ async function fetchBrandfetchBrand(domain: string): Promise<BrandfetchBrandResu
   }
 
   const url = `https://api.brandfetch.io/v2/brands/domain/${encodeURIComponent(domain)}`;
-  const response = await fetch(
-    url,
-    {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-      },
+  const abortController = new AbortController();
+  const timeoutId = setTimeout(() => abortController.abort(), 5_000);
+
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
     },
-  ).catch(() => undefined);
+    signal: abortController.signal,
+  })
+    .catch(() => undefined)
+    .finally(() => clearTimeout(timeoutId));
 
   if (!response?.ok) {
     return {

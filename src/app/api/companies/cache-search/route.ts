@@ -21,6 +21,25 @@ type BrandCacheRow = {
   fetched_at: string | null;
 };
 
+const BRAND_CACHE_SELECT =
+  "brandfetch_brand_id,name,normalized_name,domain,normalized_domain,website_url,icon_url,logo_url,brand_color,source,fetched_at";
+
+async function searchBrandCacheColumn(column: string, value?: string) {
+  const searchValue = value?.trim();
+
+  if (!searchValue) {
+    return { data: [] as BrandCacheRow[], error: null };
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("brand_cache")
+    .select(BRAND_CACHE_SELECT)
+    .ilike(column, `%${searchValue}%`)
+    .limit(8);
+
+  return { data: (data ?? []) as BrandCacheRow[], error };
+}
+
 export async function GET(request: NextRequest) {
   const q = request.nextUrl.searchParams.get("q")?.trim() ?? "";
 
@@ -31,23 +50,13 @@ export async function GET(request: NextRequest) {
   const normalizedName = normalizeCompanyName(q);
   const normalizedDomain = normalizeDomain(q);
 
-  const filters = [
-    `normalized_name.ilike.%${normalizedName}%`,
-    `name.ilike.%${q}%`,
-  ];
-
-  if (normalizedDomain) {
-    filters.push(`normalized_domain.ilike.%${normalizedDomain}%`);
-    filters.push(`domain.ilike.%${normalizedDomain}%`);
-  }
-
-  const { data, error } = await supabaseAdmin
-    .from("brand_cache")
-    .select(
-      "brandfetch_brand_id,name,normalized_name,domain,normalized_domain,website_url,icon_url,logo_url,brand_color,source,fetched_at",
-    )
-    .or(filters.join(","))
-    .limit(8);
+  const results = await Promise.all([
+    searchBrandCacheColumn("normalized_name", normalizedName),
+    searchBrandCacheColumn("name", q),
+    searchBrandCacheColumn("normalized_domain", normalizedDomain),
+    searchBrandCacheColumn("domain", normalizedDomain),
+  ]);
+  const error = results.find((result) => result.error)?.error;
 
   if (error) {
     return NextResponse.json(
@@ -56,8 +65,19 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const items: CompanyBrandSuggestion[] = ((data ?? []) as BrandCacheRow[]).map(
-    (row) => ({
+  const rowsByKey = new Map<string, BrandCacheRow>();
+
+  for (const row of results.flatMap((result) => result.data)) {
+    const key = row.normalized_domain
+      ? `domain:${row.normalized_domain}`
+      : `name:${row.normalized_name}`;
+
+    rowsByKey.set(key, row);
+  }
+
+  const items: CompanyBrandSuggestion[] = Array.from(rowsByKey.values())
+    .slice(0, 8)
+    .map((row) => ({
       name: row.name,
       normalizedName: row.normalized_name,
       domain: row.domain ?? undefined,
@@ -70,8 +90,7 @@ export async function GET(request: NextRequest) {
       enrichmentSource: row.source ?? undefined,
       enrichmentUpdatedAt: row.fetched_at ?? undefined,
       source: "supabase",
-    }),
-  );
+    }));
 
   return NextResponse.json({ items });
 }

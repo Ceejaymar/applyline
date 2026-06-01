@@ -1,7 +1,7 @@
-import { CompanyBrandSuggestion } from "./company-brand.types";
+import type { CompanyBrandSuggestion } from "./company-brand.types";
 
 const LEGAL_SUFFIXES =
-  "/\b(inc|inc\.|llc|ltd|co|corp|corporation|company)\b\.?/gi";
+  /\b(inc|inc\.|llc|ltd|co|corp|corporation|company)\b\.?/gi;
 
 const SOURCE_PRIORITY: Record<CompanyBrandSuggestion["source"], number> = {
   local: 4,
@@ -16,7 +16,7 @@ export function normalizeCompanyName(value: string) {
     .replace(LEGAL_SUFFIXES, "")
     .replace(/[^\p{L}\p{N}\s.-]/gu, "")
     .replace(/\s+/g, " ")
-    .toLocaleLowerCase();
+    .toLowerCase();
 }
 
 export function normalizeDomain(value?: string | null) {
@@ -31,7 +31,7 @@ export function normalizeDomain(value?: string | null) {
     return url.hostname
       .replace(/^www\./i, "")
       .trim()
-      .toLocaleLowerCase();
+      .toLowerCase();
   } catch {
     return (
       value
@@ -39,7 +39,7 @@ export function normalizeDomain(value?: string | null) {
         .replace(/^www\./i, "")
         .split("/")[0]
         ?.trim()
-        .toLocaleLowerCase() || undefined
+        .toLowerCase() || undefined
     );
   }
 }
@@ -77,11 +77,17 @@ function mergeSuggestion(
   return {
     ...fallback,
     ...preferred,
+    domain: preferred.domain ?? fallback.domain,
+    normalizedDomain: preferred.normalizedDomain ?? fallback.normalizedDomain,
+    websiteUrl: preferred.websiteUrl ?? fallback.websiteUrl,
     iconUrl: preferred.iconUrl ?? fallback.iconUrl,
     logoUrl: preferred.logoUrl ?? fallback.logoUrl,
     brandColor: preferred.brandColor ?? fallback.brandColor,
     brandfetchBrandId:
       preferred.brandfetchBrandId ?? fallback.brandfetchBrandId,
+    enrichmentSource: preferred.enrichmentSource ?? fallback.enrichmentSource,
+    enrichmentUpdatedAt:
+      preferred.enrichmentUpdatedAt ?? fallback.enrichmentUpdatedAt,
     claimed: preferred.claimed ?? fallback.claimed,
   };
 }

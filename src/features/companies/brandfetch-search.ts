@@ -25,16 +25,26 @@ export async function searchBrandfetchBrands(
 
   const response = await fetch(
     `https://api.brandfetch.io/v2/search/${encodeURIComponent(cleanQuery)}?c=${encodeURIComponent(clientId)}`,
-  );
+  ).catch(() => undefined);
 
-  if (!response.ok) {
+  if (!response?.ok) {
     return [];
   }
 
-  const results = (await response.json()) as BrandfetchSearchResult[];
+  const results = await response.json().catch(() => undefined);
+
+  if (!Array.isArray(results)) {
+    return [];
+  }
 
   return results
-    .filter((item) => item.name || item.domain)
+    .filter((item): item is BrandfetchSearchResult => {
+      if (typeof item !== "object" || item === null) {
+        return false;
+      }
+
+      return Boolean(item.name || item.domain);
+    })
     .map((item) => {
       const domain = normalizeDomain(item.domain);
       const name = item.name?.trim() || domain || "Unknown company";

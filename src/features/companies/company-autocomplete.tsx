@@ -269,7 +269,7 @@ function CompanySuggestionMark({ suggestion }: { suggestion: CompanyBrandSuggest
       className="grid size-8 place-items-center rounded border text-xs font-semibold text-foreground"
       style={{ backgroundColor: suggestion.brandColor ?? undefined }}
     >
-      {suggestion.name[0]?.toLocaleUpperCase() ?? <Building2 className="size-4" />}
+      {suggestion.name[0]?.toUpperCase() ?? <Building2 className="size-4" />}
     </span>
   );
 }
@@ -468,6 +468,7 @@ export function CompanyAutocomplete({
                   void selectSuggestion(suggestion);
                 }}
                 role="option"
+                tabIndex={-1}
                 type="button"
               >
                 <CompanySuggestionMark suggestion={suggestion} />
