@@ -133,6 +133,31 @@ describe("moveJobToColumn", () => {
     expect(moved?.fromColumnId).toBe(DEFAULT_COLUMN_IDS.wishlist);
   });
 
+  it("inserts a cross-column move at the requested canonical target index", async () => {
+    const db = getDatabase();
+    await db.jobs.bulkAdd([
+      makeJob({ id: "job_target_1", columnId: DEFAULT_COLUMN_IDS.applied, position: 1000 }),
+      makeJob({ id: "job_target_2", columnId: DEFAULT_COLUMN_IDS.applied, position: 2000 }),
+      makeJob({ id: "job_target_3", columnId: DEFAULT_COLUMN_IDS.applied, position: 3000 }),
+      makeJob({ id: "job_dragged", columnId: DEFAULT_COLUMN_IDS.wishlist, position: 1000 }),
+    ]);
+
+    await moveJobToColumn("job_dragged", DEFAULT_COLUMN_IDS.applied, { targetIndex: 1 });
+
+    const orderedIds = (
+      await db.jobs.where("columnId").equals(DEFAULT_COLUMN_IDS.applied).toArray()
+    )
+      .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+      .map((job) => job.id);
+
+    expect(orderedIds).toEqual([
+      "job_target_1",
+      "job_dragged",
+      "job_target_2",
+      "job_target_3",
+    ]);
+  });
+
   it("throws when the job does not exist", async () => {
     await expect(
       moveJobToColumn("nonexistent_job", DEFAULT_COLUMN_IDS.applied),

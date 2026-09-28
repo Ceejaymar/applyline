@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   closestCorners,
   DndContext,
@@ -15,7 +15,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { CheckCircle2, Plus, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Plus, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { AddJobDialog } from "@/features/jobs/add-job-dialog";
@@ -26,6 +26,7 @@ import { ColumnCreateDialog } from "@/features/jobs/column-dialog";
 import { JobCardSurface } from "@/features/jobs/job-card";
 import { JobDrawer } from "@/features/jobs/job-drawer";
 import {
+  getFilteredCrossColumnTargetIndex,
   isNoUpdate14DaysJob,
   sortJobsForColumn,
   type JobSortMode,
@@ -96,21 +97,21 @@ type DropPreview = {
 
 type BoardToast = {
   message: string;
-  type: "success";
+  type: "error" | "success";
 };
 
 function getDropPreview({
   activeJob,
-  allJobs,
+  visibleJobs,
   columnSorts,
   overId,
 }: {
   activeJob: BoardJob;
-  allJobs: BoardJob[];
+  visibleJobs: BoardJob[];
   columnSorts: Record<string, JobSortMode>;
   overId: string;
 }): DropPreview | null {
-  const overJob = allJobs.find((job) => job.id === overId);
+  const overJob = visibleJobs.find((job) => job.id === overId);
   const targetColumnId = overId.startsWith("column:")
     ? overId.replace("column:", "")
     : overJob?.columnId;
@@ -119,15 +120,18 @@ function getDropPreview({
     return null;
   }
 
+  const visibleTargetJobs = getColumnJobs(
+    visibleJobs,
+    targetColumnId,
+    getColumnSort(columnSorts, targetColumnId),
+  );
+  const visibleOverIndex = overId.startsWith("column:")
+    ? visibleTargetJobs.length
+    : visibleTargetJobs.findIndex((job) => job.id === overId);
+
   return {
     columnId: targetColumnId,
-    index: getTargetIndex({
-      activeJob,
-      allJobs,
-      columnSorts,
-      overId,
-      targetColumnId,
-    }),
+    index: visibleOverIndex < 0 ? visibleTargetJobs.length : visibleOverIndex,
   };
 }
 
@@ -156,6 +160,7 @@ export function BoardPage() {
   const [isCreatingColumn, setIsCreatingColumn] = useState(false);
   const [pendingArchiveMove, setPendingArchiveMove] = useState<PendingMove | null>(null);
   const [toast, setToast] = useState<BoardToast | null>(null);
+  const lastOverIdRef = useRef<string | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -184,6 +189,9 @@ export function BoardPage() {
       return matchesSearch && matchesTag && matchesSource && matchesComputedFilter;
     });
   }, [computedFilter, jobs, search, selectedSource, selectedTag]);
+  const hasActiveFilters = Boolean(
+    search.trim() || selectedTag || selectedSource || computedFilter,
+  );
   const activeJob = jobs.find((job) => job.id === activeJobId) ?? null;
   const activeDragJob = jobs.find((job) => job.id === activeDragJobId) ?? null;
 
@@ -199,8 +207,11 @@ export function BoardPage() {
     try {
       const parsedToast = JSON.parse(rawToast) as Partial<BoardToast>;
 
-      if (parsedToast.type === "success" && parsedToast.message) {
-        setToast({ type: "success", message: parsedToast.message });
+      if (
+        (parsedToast.type === "success" || parsedToast.type === "error") &&
+        parsedToast.message
+      ) {
+        setToast({ type: parsedToast.type, message: parsedToast.message });
       }
     } catch {
       return;
@@ -217,11 +228,32 @@ export function BoardPage() {
   }, [toast]);
 
   function onDragStart(event: DragStartEvent) {
+    lastOverIdRef.current = null;
     setActiveDragJobId(event.active.id.toString());
     setDropPreview(null);
   }
 
+  function reportMoveError(
+    error: unknown,
+    context: {
+      isFiltered: boolean;
+      jobId: string;
+      targetColumnId: string;
+      targetIndex: number;
+    },
+  ) {
+    console.error("[BoardPage] moveJobToColumn failed", {
+      ...context,
+      error,
+    });
+    setToast({
+      type: "error",
+      message: "The job could not be moved. Your board was not changed.",
+    });
+  }
+
   function onDragCancel(_event: DragCancelEvent) {
+    lastOverIdRef.current = null;
     setActiveDragJobId(null);
     setDropPreview(null);
   }
@@ -230,31 +262,46 @@ export function BoardPage() {
     const { active, over } = event;
 
     if (!over) {
+      lastOverIdRef.current = null;
       setDropPreview(null);
       return;
     }
+
+    lastOverIdRef.current = over.id.toString();
 
     const activeJob = jobs.find((job) => job.id === active.id);
 
     if (!activeJob) {
+      lastOverIdRef.current = null;
       setDropPreview(null);
       return;
     }
 
-    setDropPreview(
-      getDropPreview({
-        activeJob,
-        allJobs: filteredJobs,
-        columnSorts,
-        overId: over.id.toString(),
-      }),
-    );
+    const nextPreview = getDropPreview({
+      activeJob,
+      visibleJobs: filteredJobs,
+      columnSorts,
+      overId: over.id.toString(),
+    });
+
+    setDropPreview((currentPreview) => {
+      if (
+        currentPreview?.columnId === nextPreview?.columnId &&
+        currentPreview?.index === nextPreview?.index
+      ) {
+        return currentPreview;
+      }
+
+      return nextPreview;
+    });
   }
 
   async function onDragEnd(event: DragEndEvent) {
     const { active, over } = event;
+    const overId = over?.id.toString() ?? lastOverIdRef.current;
 
-    if (!over) {
+    if (!overId) {
+      lastOverIdRef.current = null;
       setActiveDragJobId(null);
       setDropPreview(null);
       return;
@@ -263,35 +310,51 @@ export function BoardPage() {
     const activeJob = jobs.find((job) => job.id === active.id);
 
     if (!activeJob) {
+      lastOverIdRef.current = null;
       setActiveDragJobId(null);
       setDropPreview(null);
       return;
     }
 
-    const overId = over.id.toString();
     const overJob = jobs.find((job) => job.id === overId);
     const targetColumnId = overId.startsWith("column:")
       ? overId.replace("column:", "")
       : overJob?.columnId;
 
     if (!targetColumnId) {
+      lastOverIdRef.current = null;
       setActiveDragJobId(null);
       setDropPreview(null);
       return;
     }
 
-    const targetIndex = getTargetIndex({
-      activeJob,
-      allJobs: jobs,
-      columnSorts,
-      overId,
-      targetColumnId,
-    });
+    if (hasActiveFilters && targetColumnId === activeJob.columnId) {
+      lastOverIdRef.current = null;
+      setActiveDragJobId(null);
+      setDropPreview(null);
+      return;
+    }
+
+    const targetIndex = hasActiveFilters
+      ? getFilteredCrossColumnTargetIndex({
+          activeJobId: activeJob.id,
+          jobs,
+          overId,
+          targetColumnId,
+        })
+      : getTargetIndex({
+          activeJob,
+          allJobs: jobs,
+          columnSorts,
+          overId,
+          targetColumnId,
+        });
 
     if (
       targetColumnId === DEFAULT_COLUMN_IDS.archived &&
       activeJob.columnId !== DEFAULT_COLUMN_IDS.archived
     ) {
+      lastOverIdRef.current = null;
       setActiveDragJobId(null);
       setDropPreview(null);
       setPendingArchiveMove({
@@ -304,7 +367,15 @@ export function BoardPage() {
 
     try {
       await moveJobToColumn(activeJob.id, targetColumnId, { targetIndex });
+    } catch (moveError) {
+      reportMoveError(moveError, {
+        isFiltered: hasActiveFilters,
+        jobId: activeJob.id,
+        targetColumnId,
+        targetIndex,
+      });
     } finally {
+      lastOverIdRef.current = null;
       setActiveDragJobId(null);
       setDropPreview(null);
     }
@@ -315,11 +386,21 @@ export function BoardPage() {
       return;
     }
 
-    await moveJobToColumn(pendingArchiveMove.jobId, pendingArchiveMove.targetColumnId, {
-      archivedReason,
-      targetIndex: pendingArchiveMove.targetIndex,
-    });
-    setPendingArchiveMove(null);
+    try {
+      await moveJobToColumn(pendingArchiveMove.jobId, pendingArchiveMove.targetColumnId, {
+        archivedReason,
+        targetIndex: pendingArchiveMove.targetIndex,
+      });
+    } catch (moveError) {
+      reportMoveError(moveError, {
+        isFiltered: hasActiveFilters,
+        jobId: pendingArchiveMove.jobId,
+        targetColumnId: pendingArchiveMove.targetColumnId,
+        targetIndex: pendingArchiveMove.targetIndex,
+      });
+    } finally {
+      setPendingArchiveMove(null);
+    }
   }
 
   if (error) {
@@ -333,14 +414,29 @@ export function BoardPage() {
   return (
     <div className="flex h-[calc(100dvh-7rem)] min-h-0 max-h-[calc(100dvh-7rem)] flex-col gap-5 overflow-hidden">
       {toast ? (
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-primary shadow-sm">
+        <div
+          className={
+            toast.type === "error"
+              ? "flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive shadow-sm"
+              : "flex items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-primary shadow-sm"
+          }
+          role={toast.type === "error" ? "alert" : "status"}
+        >
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="size-4" />
+            {toast.type === "error" ? (
+              <AlertTriangle className="size-4" />
+            ) : (
+              <CheckCircle2 className="size-4" />
+            )}
             <span className="font-medium">{toast.message}</span>
           </div>
           <Button
             aria-label="Dismiss notification"
-            className="size-7 text-primary hover:bg-primary/10"
+            className={
+              toast.type === "error"
+                ? "size-7 text-destructive hover:bg-destructive/10"
+                : "size-7 text-primary hover:bg-primary/10"
+            }
             onClick={() => setToast(null)}
             size="icon"
             variant="ghost"

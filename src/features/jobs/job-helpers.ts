@@ -1,5 +1,6 @@
 import { DEFAULT_COLUMN_IDS, DEFAULT_SOURCE_IDS, type Source } from "@/lib/schemas";
 import type { BoardJob } from "@/lib/use-jobs";
+import { sortJobsForPersistence } from "@/db/utils";
 
 const noUpdateThresholdMs = 14 * 24 * 60 * 60 * 1000;
 
@@ -9,6 +10,13 @@ type DuplicateJobInput = {
   jobs: BoardJob[];
   link?: string;
   title?: string;
+};
+
+type FilteredCrossColumnTargetInput = {
+  activeJobId: string;
+  jobs: BoardJob[];
+  overId: string;
+  targetColumnId: string;
 };
 
 export type JobSortDirection = "asc" | "desc";
@@ -118,6 +126,24 @@ export function sortJobsForColumn(jobs: BoardJob[], sort: JobColumnSort = "lates
 
     return a.id.localeCompare(b.id);
   });
+}
+
+export function getFilteredCrossColumnTargetIndex({
+  activeJobId,
+  jobs,
+  overId,
+  targetColumnId,
+}: FilteredCrossColumnTargetInput) {
+  const canonicalTargetJobs = jobs
+    .filter((job) => job.columnId === targetColumnId && job.id !== activeJobId)
+    .toSorted(sortJobsForPersistence);
+
+  if (overId.startsWith("column:")) {
+    return canonicalTargetJobs.length;
+  }
+
+  const canonicalOverIndex = canonicalTargetJobs.findIndex((job) => job.id === overId);
+  return canonicalOverIndex < 0 ? canonicalTargetJobs.length : canonicalOverIndex;
 }
 
 export function isNoUpdate14DaysJob(job: BoardJob, now = new Date()) {
