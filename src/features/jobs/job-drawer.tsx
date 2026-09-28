@@ -536,6 +536,8 @@ export function JobDrawer({
   const [duplicateJob, setDuplicateJob] = useState<BoardJob | null>(null);
   const [pendingValues, setPendingValues] = useState<JobFormValues | null>(null);
   const initializedJobIdRef = useRef<string | null>(null);
+  const selectedJobIdRef = useRef(job?.id ?? null);
+  selectedJobIdRef.current = job?.id ?? null;
   const form = useForm<JobFormValues>({
     resolver: zodResolver(jobFormSchema),
   });
@@ -591,7 +593,13 @@ export function JobDrawer({
       return;
     }
 
-    await updateJob(job.id, toJobInput(values));
+    const submittedJobId = job.id;
+    await updateJob(submittedJobId, toJobInput(values));
+
+    if (selectedJobIdRef.current !== submittedJobId) {
+      return;
+    }
+
     form.reset(values);
     setDuplicateJob(null);
     setPendingValues(null);
