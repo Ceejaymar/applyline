@@ -47,11 +47,13 @@ const emptyBoardData: BoardData = {
   sources: [],
 };
 
+export const BOARD_DATA_MODE = "local" as const;
+
 function sortByOrder(a: Column, b: Column) {
   return a.order - b.order;
 }
 
-export function useBoardData() {
+function useLocalBoardData() {
   const [data, setData] = useState<BoardData>(emptyBoardData);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -132,6 +134,10 @@ export function useBoardData() {
   }, []);
 
   return { ...data, isLoading, error };
+}
+
+export function useBoardData() {
+  return useLocalBoardData();
 }
 
 export function useJobs() {

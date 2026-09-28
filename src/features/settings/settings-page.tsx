@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChangeEvent } from "react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, Database, Download, FileJson, Keyboard, MonitorCog, Upload } from "lucide-react";
 import { z } from "zod";
 
@@ -18,6 +18,10 @@ import {
   type BackupImportMode,
   type BackupPreview,
 } from "@/lib/backup";
+import {
+  ensureLocalStorageProtection,
+  type LocalStorageProtectionStatus,
+} from "@/lib/storage-persistence";
 
 type ImportState = {
   backup: ApplylineBackup;
@@ -58,6 +62,28 @@ function DataSection() {
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
   const [status, setStatus] = useState<StatusState | null>(null);
+  const [storageProtection, setStorageProtection] =
+    useState<LocalStorageProtectionStatus | null>(null);
+  const storageProtectionLabel =
+    storageProtection === "enabled"
+      ? "Enabled"
+      : storageProtection === "browser-managed"
+        ? "Browser managed"
+        : "Checking...";
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    void ensureLocalStorageProtection().then((nextStatus) => {
+      if (!isCancelled) {
+        setStorageProtection(nextStatus);
+      }
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
   async function onExportBackup() {
     try {
@@ -156,10 +182,16 @@ function DataSection() {
 
       <div className="flex items-start gap-2 rounded-md border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">
         <Database className="mt-px size-4 shrink-0 text-primary/70" />
-        <p>
-          Your job data is stored locally in this browser using IndexedDB. Export backups
-          regularly if you want to preserve or move your data.
-        </p>
+        <div className="grid gap-1">
+          <p>
+            Your job data is stored locally in this browser using IndexedDB. Export backups
+            regularly if you want to preserve or move your data.
+          </p>
+          <p aria-live="polite" className="text-xs">
+            Local storage protection: {storageProtectionLabel}. Data remains local to this
+            browser and device.
+          </p>
+        </div>
       </div>
 
       <div className="grid gap-3 rounded-md border bg-background/55 p-3">
