@@ -5,6 +5,7 @@ import type { BoardJob } from "@/lib/use-jobs";
 
 import {
   findPossibleDuplicateJob,
+  getFilteredCrossColumnTargetIndex,
   getJobSortTimestamp,
   inferSourceIdFromLink,
   isNoUpdate14DaysJob,
@@ -298,6 +299,53 @@ describe("sortJobsForColumn", () => {
     const jobA = makeJob({ id: "job_a", lastStatusChangedAt: timestamp });
 
     expect(sortJobsForColumn([jobB, jobA]).map((job) => job.id)).toEqual(["job_a", "job_b"]);
+  });
+});
+
+describe("getFilteredCrossColumnTargetIndex", () => {
+  const targetColumnId = DEFAULT_COLUMN_IDS.applied;
+  const jobs = [
+    makeJob({ id: "job_hidden_before", columnId: targetColumnId, position: 1000 }),
+    makeJob({ id: "job_visible_target", columnId: targetColumnId, position: 2000 }),
+    makeJob({ id: "job_hidden_after", columnId: targetColumnId, position: 3000 }),
+    makeJob({
+      id: "job_dragged",
+      columnId: DEFAULT_COLUMN_IDS.wishlist,
+      position: 1000,
+    }),
+  ];
+
+  it("maps a visible target job to its position in the full target column", () => {
+    expect(
+      getFilteredCrossColumnTargetIndex({
+        activeJobId: "job_dragged",
+        jobs,
+        overId: "job_visible_target",
+        targetColumnId,
+      }),
+    ).toBe(1);
+  });
+
+  it("appends after hidden jobs when dropped on the column", () => {
+    expect(
+      getFilteredCrossColumnTargetIndex({
+        activeJobId: "job_dragged",
+        jobs,
+        overId: `column:${targetColumnId}`,
+        targetColumnId,
+      }),
+    ).toBe(3);
+  });
+
+  it("appends when the hovered job cannot be resolved in the target column", () => {
+    expect(
+      getFilteredCrossColumnTargetIndex({
+        activeJobId: "job_dragged",
+        jobs,
+        overId: "job_not_in_target",
+        targetColumnId,
+      }),
+    ).toBe(3);
   });
 });
 

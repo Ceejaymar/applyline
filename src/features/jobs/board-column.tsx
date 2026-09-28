@@ -25,6 +25,7 @@ type BoardColumnProps = {
   jobs: BoardJob[];
   now: Date;
   onSortChange: (columnId: string, sort: JobSortMode) => void;
+  prefersReducedMotion: boolean;
   sort: JobSortMode;
 };
 
@@ -32,7 +33,7 @@ function DropPreviewCard() {
   return (
     <div
       aria-hidden="true"
-      className="h-[5.75rem] rounded-md border border-dashed border-primary/45 bg-primary/[0.055] shadow-[inset_0_0_0_1px_hsl(var(--background)/0.65)] transition-[opacity,transform] duration-150 ease-out motion-reduce:transition-none"
+      className="pointer-events-none h-[5.75rem] w-full shrink-0 rounded-md border border-dashed border-primary/45 bg-primary/[0.055] transition-colors duration-150 motion-reduce:transition-none"
     />
   );
 }
@@ -46,6 +47,7 @@ export function BoardColumn({
   jobs,
   now,
   onSortChange,
+  prefersReducedMotion,
   sort,
 }: BoardColumnProps) {
   const openCreate = useApplylineUiStore((state) => state.openCreate);
@@ -64,7 +66,7 @@ export function BoardColumn({
     <section
       aria-label={column.name}
       className={cn(
-        "flex h-full min-h-0 max-h-full w-[19rem] max-w-[19rem] shrink-0 flex-col overflow-hidden rounded-lg border bg-card/85 transition-colors",
+        "flex h-full min-h-0 max-h-full w-[19rem] max-w-[19rem] shrink-0 flex-col overflow-hidden rounded-lg border bg-card/85 transition-colors motion-reduce:transition-none",
         isOver && "border-primary/45 bg-primary/5",
       )}
       ref={setNodeRef}
@@ -104,8 +106,10 @@ export function BoardColumn({
                 {normalizedDropPreviewIndex === index ? <DropPreviewCard /> : null}
                 <JobCard
                   isDragSourceHidden={job.id === activeDragJobId}
+                  isDragActive={Boolean(activeDragJobId)}
                   job={job}
                   now={now}
+                  prefersReducedMotion={prefersReducedMotion}
                 />
               </Fragment>
             ))}
@@ -113,7 +117,7 @@ export function BoardColumn({
             {jobs.length === 0 && normalizedDropPreviewIndex === null ? (
               <div
                 aria-label={`${column.name} drop zone, empty`}
-                className="grid h-28 place-items-center rounded-md border border-dashed bg-background/55 px-5 text-center text-xs leading-5 text-muted-foreground"
+                className="grid h-28 place-items-center rounded-md border border-dashed bg-background/55 px-5 text-center text-xs leading-5 text-muted-foreground transition-colors motion-reduce:transition-none"
                 role="region"
               >
                 No jobs yet.

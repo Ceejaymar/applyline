@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   closestCorners,
+  defaultDropAnimationSideEffects,
   DndContext,
   DragOverlay,
   KeyboardSensor,
+  MeasuringStrategy,
   PointerSensor,
   useSensor,
   useSensors,
@@ -13,9 +15,11 @@ import {
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
+  type DropAnimation,
 } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { CheckCircle2, Plus, X } from "lucide-react";
+import { CSS } from "@dnd-kit/utilities";
+import { AlertTriangle, CheckCircle2, Plus, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { AddJobDialog } from "@/features/jobs/add-job-dialog";
@@ -26,6 +30,7 @@ import { ColumnCreateDialog } from "@/features/jobs/column-dialog";
 import { JobCardSurface } from "@/features/jobs/job-card";
 import { JobDrawer } from "@/features/jobs/job-drawer";
 import {
+  getFilteredCrossColumnTargetIndex,
   isNoUpdate14DaysJob,
   sortJobsForColumn,
   type JobSortMode,
@@ -35,6 +40,55 @@ import { DEFAULT_COLUMN_IDS, type ArchivedReason } from "@/lib/schemas";
 import { useNow } from "@/lib/use-now";
 import { useBoardData, type BoardJob } from "@/lib/use-jobs";
 import { useApplylineUiStore } from "@/store/applyline-ui-store";
+
+const dropAnimation: DropAnimation = {
+  duration: 160,
+  easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+  keyframes({ transform }) {
+    const settledTransform = {
+      ...transform.initial,
+      scaleX: transform.initial.scaleX * 0.985,
+      scaleY: transform.initial.scaleY * 0.985,
+    };
+
+    return [
+      {
+        opacity: 1,
+        transform: CSS.Transform.toString(transform.initial),
+      },
+      {
+        opacity: 0,
+        transform: CSS.Transform.toString(settledTransform),
+      },
+    ];
+  },
+  sideEffects: defaultDropAnimationSideEffects({
+    styles: {
+      active: { opacity: "0" },
+    },
+  }),
+};
+
+const measuring = {
+  droppable: {
+    strategy: MeasuringStrategy.Always,
+  },
+};
+
+function usePrefersReducedMotion() {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const updatePreference = () => setPrefersReducedMotion(mediaQuery.matches);
+
+    updatePreference();
+    mediaQuery.addEventListener("change", updatePreference);
+    return () => mediaQuery.removeEventListener("change", updatePreference);
+  }, []);
+
+  return prefersReducedMotion;
+}
 
 function getColumnSort(columnSorts: Record<string, JobSortMode>, columnId: string) {
   return columnSorts[columnId] ?? "latest";
@@ -96,21 +150,21 @@ type DropPreview = {
 
 type BoardToast = {
   message: string;
-  type: "success";
+  type: "error" | "success";
 };
 
 function getDropPreview({
   activeJob,
-  allJobs,
+  visibleJobs,
   columnSorts,
   overId,
 }: {
   activeJob: BoardJob;
-  allJobs: BoardJob[];
+  visibleJobs: BoardJob[];
   columnSorts: Record<string, JobSortMode>;
   overId: string;
 }): DropPreview | null {
-  const overJob = allJobs.find((job) => job.id === overId);
+  const overJob = visibleJobs.find((job) => job.id === overId);
   const targetColumnId = overId.startsWith("column:")
     ? overId.replace("column:", "")
     : overJob?.columnId;
@@ -119,15 +173,18 @@ function getDropPreview({
     return null;
   }
 
+  const visibleTargetJobs = getColumnJobs(
+    visibleJobs,
+    targetColumnId,
+    getColumnSort(columnSorts, targetColumnId),
+  );
+  const visibleOverIndex = overId.startsWith("column:")
+    ? visibleTargetJobs.length
+    : visibleTargetJobs.findIndex((job) => job.id === overId);
+
   return {
     columnId: targetColumnId,
-    index: getTargetIndex({
-      activeJob,
-      allJobs,
-      columnSorts,
-      overId,
-      targetColumnId,
-    }),
+    index: visibleOverIndex < 0 ? visibleTargetJobs.length : visibleOverIndex,
   };
 }
 
@@ -156,6 +213,9 @@ export function BoardPage() {
   const [isCreatingColumn, setIsCreatingColumn] = useState(false);
   const [pendingArchiveMove, setPendingArchiveMove] = useState<PendingMove | null>(null);
   const [toast, setToast] = useState<BoardToast | null>(null);
+  const dropPreviewRef = useRef<DropPreview | null>(null);
+  const lastOverIdRef = useRef<string | null>(null);
+  const prefersReducedMotion = usePrefersReducedMotion();
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -184,6 +244,9 @@ export function BoardPage() {
       return matchesSearch && matchesTag && matchesSource && matchesComputedFilter;
     });
   }, [computedFilter, jobs, search, selectedSource, selectedTag]);
+  const hasActiveFilters = Boolean(
+    search.trim() || selectedTag || selectedSource || computedFilter,
+  );
   const activeJob = jobs.find((job) => job.id === activeJobId) ?? null;
   const activeDragJob = jobs.find((job) => job.id === activeDragJobId) ?? null;
 
@@ -199,8 +262,11 @@ export function BoardPage() {
     try {
       const parsedToast = JSON.parse(rawToast) as Partial<BoardToast>;
 
-      if (parsedToast.type === "success" && parsedToast.message) {
-        setToast({ type: "success", message: parsedToast.message });
+      if (
+        (parsedToast.type === "success" || parsedToast.type === "error") &&
+        parsedToast.message
+      ) {
+        setToast({ type: parsedToast.type, message: parsedToast.message });
       }
     } catch {
       return;
@@ -217,83 +283,140 @@ export function BoardPage() {
   }, [toast]);
 
   function onDragStart(event: DragStartEvent) {
+    lastOverIdRef.current = null;
     setActiveDragJobId(event.active.id.toString());
-    setDropPreview(null);
+    updateDropPreview(null);
+  }
+
+  function updateDropPreview(nextPreview: DropPreview | null) {
+    const currentPreview = dropPreviewRef.current;
+
+    if (
+      currentPreview?.columnId === nextPreview?.columnId &&
+      currentPreview?.index === nextPreview?.index
+    ) {
+      return;
+    }
+
+    dropPreviewRef.current = nextPreview;
+    setDropPreview(nextPreview);
+  }
+
+  function reportMoveError(
+    error: unknown,
+    context: {
+      isFiltered: boolean;
+      jobId: string;
+      targetColumnId: string;
+      targetIndex: number;
+    },
+  ) {
+    console.error("[BoardPage] moveJobToColumn failed", {
+      ...context,
+      error,
+    });
+    setToast({
+      type: "error",
+      message: "The job could not be moved. Your board was not changed.",
+    });
   }
 
   function onDragCancel(_event: DragCancelEvent) {
+    lastOverIdRef.current = null;
     setActiveDragJobId(null);
-    setDropPreview(null);
+    updateDropPreview(null);
   }
 
   function onDragOver(event: DragOverEvent) {
     const { active, over } = event;
 
     if (!over) {
-      setDropPreview(null);
+      lastOverIdRef.current = null;
+      updateDropPreview(null);
       return;
     }
+
+    lastOverIdRef.current = over.id.toString();
 
     const activeJob = jobs.find((job) => job.id === active.id);
 
     if (!activeJob) {
-      setDropPreview(null);
+      lastOverIdRef.current = null;
+      updateDropPreview(null);
       return;
     }
 
-    setDropPreview(
-      getDropPreview({
-        activeJob,
-        allJobs: filteredJobs,
-        columnSorts,
-        overId: over.id.toString(),
-      }),
-    );
+    const nextPreview = getDropPreview({
+      activeJob,
+      visibleJobs: filteredJobs,
+      columnSorts,
+      overId: over.id.toString(),
+    });
+
+    updateDropPreview(nextPreview);
   }
 
   async function onDragEnd(event: DragEndEvent) {
     const { active, over } = event;
+    const overId = over?.id.toString() ?? lastOverIdRef.current;
 
-    if (!over) {
+    if (!overId) {
+      lastOverIdRef.current = null;
       setActiveDragJobId(null);
-      setDropPreview(null);
+      updateDropPreview(null);
       return;
     }
 
     const activeJob = jobs.find((job) => job.id === active.id);
 
     if (!activeJob) {
+      lastOverIdRef.current = null;
       setActiveDragJobId(null);
-      setDropPreview(null);
+      updateDropPreview(null);
       return;
     }
 
-    const overId = over.id.toString();
     const overJob = jobs.find((job) => job.id === overId);
     const targetColumnId = overId.startsWith("column:")
       ? overId.replace("column:", "")
       : overJob?.columnId;
 
     if (!targetColumnId) {
+      lastOverIdRef.current = null;
       setActiveDragJobId(null);
-      setDropPreview(null);
+      updateDropPreview(null);
       return;
     }
 
-    const targetIndex = getTargetIndex({
-      activeJob,
-      allJobs: jobs,
-      columnSorts,
-      overId,
-      targetColumnId,
-    });
+    if (hasActiveFilters && targetColumnId === activeJob.columnId) {
+      lastOverIdRef.current = null;
+      setActiveDragJobId(null);
+      updateDropPreview(null);
+      return;
+    }
+
+    const targetIndex = hasActiveFilters
+      ? getFilteredCrossColumnTargetIndex({
+          activeJobId: activeJob.id,
+          jobs,
+          overId,
+          targetColumnId,
+        })
+      : getTargetIndex({
+          activeJob,
+          allJobs: jobs,
+          columnSorts,
+          overId,
+          targetColumnId,
+        });
 
     if (
       targetColumnId === DEFAULT_COLUMN_IDS.archived &&
       activeJob.columnId !== DEFAULT_COLUMN_IDS.archived
     ) {
+      lastOverIdRef.current = null;
       setActiveDragJobId(null);
-      setDropPreview(null);
+      updateDropPreview(null);
       setPendingArchiveMove({
         jobId: activeJob.id,
         targetColumnId,
@@ -304,9 +427,17 @@ export function BoardPage() {
 
     try {
       await moveJobToColumn(activeJob.id, targetColumnId, { targetIndex });
+    } catch (moveError) {
+      reportMoveError(moveError, {
+        isFiltered: hasActiveFilters,
+        jobId: activeJob.id,
+        targetColumnId,
+        targetIndex,
+      });
     } finally {
+      lastOverIdRef.current = null;
       setActiveDragJobId(null);
-      setDropPreview(null);
+      updateDropPreview(null);
     }
   }
 
@@ -315,11 +446,21 @@ export function BoardPage() {
       return;
     }
 
-    await moveJobToColumn(pendingArchiveMove.jobId, pendingArchiveMove.targetColumnId, {
-      archivedReason,
-      targetIndex: pendingArchiveMove.targetIndex,
-    });
-    setPendingArchiveMove(null);
+    try {
+      await moveJobToColumn(pendingArchiveMove.jobId, pendingArchiveMove.targetColumnId, {
+        archivedReason,
+        targetIndex: pendingArchiveMove.targetIndex,
+      });
+    } catch (moveError) {
+      reportMoveError(moveError, {
+        isFiltered: hasActiveFilters,
+        jobId: pendingArchiveMove.jobId,
+        targetColumnId: pendingArchiveMove.targetColumnId,
+        targetIndex: pendingArchiveMove.targetIndex,
+      });
+    } finally {
+      setPendingArchiveMove(null);
+    }
   }
 
   if (error) {
@@ -333,14 +474,25 @@ export function BoardPage() {
   return (
     <div className="flex h-[calc(100dvh-7rem)] min-h-0 max-h-[calc(100dvh-7rem)] flex-col gap-5 overflow-hidden">
       {toast ? (
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-primary shadow-sm">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="size-4" />
-            <span className="font-medium">{toast.message}</span>
+        <div
+          className={
+            toast.type === "error"
+              ? "fixed bottom-4 right-4 z-[70] flex w-[calc(100vw-2rem)] max-w-sm items-start justify-between gap-3 rounded-lg border border-destructive/30 bg-card px-4 py-3 text-sm text-card-foreground shadow-soft sm:bottom-6 sm:right-6"
+              : "fixed bottom-4 right-4 z-[70] flex w-[calc(100vw-2rem)] max-w-sm items-start justify-between gap-3 rounded-lg border border-success/30 bg-card px-4 py-3 text-sm text-card-foreground shadow-soft sm:bottom-6 sm:right-6"
+          }
+          role={toast.type === "error" ? "alert" : "status"}
+        >
+          <div className="flex min-w-0 items-start gap-2">
+            {toast.type === "error" ? (
+              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
+            ) : (
+              <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" />
+            )}
+            <span className="min-w-0 font-medium leading-5">{toast.message}</span>
           </div>
           <Button
             aria-label="Dismiss notification"
-            className="size-7 text-primary hover:bg-primary/10"
+            className="-mr-1 -mt-1 size-7 shrink-0 text-muted-foreground hover:bg-secondary hover:text-foreground"
             onClick={() => setToast(null)}
             size="icon"
             variant="ghost"
@@ -389,6 +541,7 @@ export function BoardPage() {
         <div className="min-h-0 flex-1 overflow-hidden">
           <DndContext
             collisionDetection={closestCorners}
+            measuring={measuring}
             onDragCancel={onDragCancel}
             onDragEnd={onDragEnd}
             onDragOver={onDragOver}
@@ -411,12 +564,17 @@ export function BoardPage() {
                     key={column.id}
                     now={now}
                     onSortChange={setColumnSort}
+                    prefersReducedMotion={prefersReducedMotion}
                     sort={columnSort}
                   />
                 );
               })}
             </div>
-            <DragOverlay dropAnimation={null}>
+            <DragOverlay
+              className="pointer-events-none"
+              dropAnimation={prefersReducedMotion || dropPreview ? null : dropAnimation}
+              zIndex={60}
+            >
               {activeDragJob ? <JobCardSurface isOverlay job={activeDragJob} now={now} /> : null}
             </DragOverlay>
           </DndContext>
@@ -432,7 +590,18 @@ export function BoardPage() {
         jobs={jobs}
         sources={sources}
       />
-      <AddJobDialog columns={columns} companies={companies} jobs={jobs} sources={sources} />
+      <AddJobDialog
+        columns={columns}
+        companies={companies}
+        jobs={jobs}
+        onCreated={() =>
+          setToast({
+            type: "success",
+            message: "Job added to your board.",
+          })
+        }
+        sources={sources}
+      />
       <ColumnCreateDialog open={isCreatingColumn} onOpenChange={setIsCreatingColumn} />
       <ArchiveMoveDialog
         job={jobs.find((job) => job.id === pendingArchiveMove?.jobId) ?? null}

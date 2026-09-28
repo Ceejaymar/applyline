@@ -31,10 +31,17 @@ type AddJobDialogProps = {
   columns: Column[];
   companies: Company[];
   jobs: BoardJob[];
+  onCreated: () => void;
   sources: Source[];
 };
 
-export function AddJobDialog({ columns, companies, jobs, sources }: AddJobDialogProps) {
+export function AddJobDialog({
+  columns,
+  companies,
+  jobs,
+  onCreated,
+  sources,
+}: AddJobDialogProps) {
   const closeJob = useApplylineUiStore((state) => state.closeJob);
   const createColumnId = useApplylineUiStore((state) => state.createColumnId);
   const isCreateOpen = useApplylineUiStore((state) => state.isCreateOpen);
@@ -66,11 +73,11 @@ export function AddJobDialog({ columns, companies, jobs, sources }: AddJobDialog
 
     try {
       setSaveError(null);
-      const job = await createJob(jobInput);
+      await createJob(jobInput);
       setDuplicateJob(null);
       setPendingValues(null);
       closeJob();
-      openJob(job.id);
+      onCreated();
     } catch (error) {
       if (process.env.NODE_ENV === "development") {
         console.error("[AddJobDialog] createJob failed", error);
@@ -131,7 +138,6 @@ export function AddJobDialog({ columns, companies, jobs, sources }: AddJobDialog
             </p>
           ) : null}
           <JobFormFields
-            collapsible
             columns={columns}
             companies={companies}
             form={form}

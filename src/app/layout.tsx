@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { AppShell } from "@/components/app/app-shell";
+import { StoragePersistenceManager } from "@/components/app/storage-persistence-manager";
 import { ThemeProvider } from "@/components/app/theme-provider";
 
 import "./globals.css";
@@ -19,6 +20,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <StoragePersistenceManager />
           <AppShell>{children}</AppShell>
         </ThemeProvider>
       </body>
