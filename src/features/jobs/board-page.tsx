@@ -3,9 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   closestCorners,
+  defaultDropAnimationSideEffects,
   DndContext,
   DragOverlay,
   KeyboardSensor,
+  MeasuringStrategy,
   PointerSensor,
   useSensor,
   useSensors,
@@ -13,8 +15,10 @@ import {
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
+  type DropAnimation,
 } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { AlertTriangle, CheckCircle2, Plus, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -36,6 +40,55 @@ import { DEFAULT_COLUMN_IDS, type ArchivedReason } from "@/lib/schemas";
 import { useNow } from "@/lib/use-now";
 import { useBoardData, type BoardJob } from "@/lib/use-jobs";
 import { useApplylineUiStore } from "@/store/applyline-ui-store";
+
+const dropAnimation: DropAnimation = {
+  duration: 160,
+  easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+  keyframes({ transform }) {
+    const settledTransform = {
+      ...transform.initial,
+      scaleX: transform.initial.scaleX * 0.985,
+      scaleY: transform.initial.scaleY * 0.985,
+    };
+
+    return [
+      {
+        opacity: 1,
+        transform: CSS.Transform.toString(transform.initial),
+      },
+      {
+        opacity: 0,
+        transform: CSS.Transform.toString(settledTransform),
+      },
+    ];
+  },
+  sideEffects: defaultDropAnimationSideEffects({
+    styles: {
+      active: { opacity: "0" },
+    },
+  }),
+};
+
+const measuring = {
+  droppable: {
+    strategy: MeasuringStrategy.Always,
+  },
+};
+
+function usePrefersReducedMotion() {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const updatePreference = () => setPrefersReducedMotion(mediaQuery.matches);
+
+    updatePreference();
+    mediaQuery.addEventListener("change", updatePreference);
+    return () => mediaQuery.removeEventListener("change", updatePreference);
+  }, []);
+
+  return prefersReducedMotion;
+}
 
 function getColumnSort(columnSorts: Record<string, JobSortMode>, columnId: string) {
   return columnSorts[columnId] ?? "latest";
@@ -160,7 +213,9 @@ export function BoardPage() {
   const [isCreatingColumn, setIsCreatingColumn] = useState(false);
   const [pendingArchiveMove, setPendingArchiveMove] = useState<PendingMove | null>(null);
   const [toast, setToast] = useState<BoardToast | null>(null);
+  const dropPreviewRef = useRef<DropPreview | null>(null);
   const lastOverIdRef = useRef<string | null>(null);
+  const prefersReducedMotion = usePrefersReducedMotion();
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -230,7 +285,21 @@ export function BoardPage() {
   function onDragStart(event: DragStartEvent) {
     lastOverIdRef.current = null;
     setActiveDragJobId(event.active.id.toString());
-    setDropPreview(null);
+    updateDropPreview(null);
+  }
+
+  function updateDropPreview(nextPreview: DropPreview | null) {
+    const currentPreview = dropPreviewRef.current;
+
+    if (
+      currentPreview?.columnId === nextPreview?.columnId &&
+      currentPreview?.index === nextPreview?.index
+    ) {
+      return;
+    }
+
+    dropPreviewRef.current = nextPreview;
+    setDropPreview(nextPreview);
   }
 
   function reportMoveError(
@@ -255,7 +324,7 @@ export function BoardPage() {
   function onDragCancel(_event: DragCancelEvent) {
     lastOverIdRef.current = null;
     setActiveDragJobId(null);
-    setDropPreview(null);
+    updateDropPreview(null);
   }
 
   function onDragOver(event: DragOverEvent) {
@@ -263,7 +332,7 @@ export function BoardPage() {
 
     if (!over) {
       lastOverIdRef.current = null;
-      setDropPreview(null);
+      updateDropPreview(null);
       return;
     }
 
@@ -273,7 +342,7 @@ export function BoardPage() {
 
     if (!activeJob) {
       lastOverIdRef.current = null;
-      setDropPreview(null);
+      updateDropPreview(null);
       return;
     }
 
@@ -284,16 +353,7 @@ export function BoardPage() {
       overId: over.id.toString(),
     });
 
-    setDropPreview((currentPreview) => {
-      if (
-        currentPreview?.columnId === nextPreview?.columnId &&
-        currentPreview?.index === nextPreview?.index
-      ) {
-        return currentPreview;
-      }
-
-      return nextPreview;
-    });
+    updateDropPreview(nextPreview);
   }
 
   async function onDragEnd(event: DragEndEvent) {
@@ -303,7 +363,7 @@ export function BoardPage() {
     if (!overId) {
       lastOverIdRef.current = null;
       setActiveDragJobId(null);
-      setDropPreview(null);
+      updateDropPreview(null);
       return;
     }
 
@@ -312,7 +372,7 @@ export function BoardPage() {
     if (!activeJob) {
       lastOverIdRef.current = null;
       setActiveDragJobId(null);
-      setDropPreview(null);
+      updateDropPreview(null);
       return;
     }
 
@@ -324,14 +384,14 @@ export function BoardPage() {
     if (!targetColumnId) {
       lastOverIdRef.current = null;
       setActiveDragJobId(null);
-      setDropPreview(null);
+      updateDropPreview(null);
       return;
     }
 
     if (hasActiveFilters && targetColumnId === activeJob.columnId) {
       lastOverIdRef.current = null;
       setActiveDragJobId(null);
-      setDropPreview(null);
+      updateDropPreview(null);
       return;
     }
 
@@ -356,7 +416,7 @@ export function BoardPage() {
     ) {
       lastOverIdRef.current = null;
       setActiveDragJobId(null);
-      setDropPreview(null);
+      updateDropPreview(null);
       setPendingArchiveMove({
         jobId: activeJob.id,
         targetColumnId,
@@ -377,7 +437,7 @@ export function BoardPage() {
     } finally {
       lastOverIdRef.current = null;
       setActiveDragJobId(null);
-      setDropPreview(null);
+      updateDropPreview(null);
     }
   }
 
@@ -485,6 +545,7 @@ export function BoardPage() {
         <div className="min-h-0 flex-1 overflow-hidden">
           <DndContext
             collisionDetection={closestCorners}
+            measuring={measuring}
             onDragCancel={onDragCancel}
             onDragEnd={onDragEnd}
             onDragOver={onDragOver}
@@ -507,12 +568,17 @@ export function BoardPage() {
                     key={column.id}
                     now={now}
                     onSortChange={setColumnSort}
+                    prefersReducedMotion={prefersReducedMotion}
                     sort={columnSort}
                   />
                 );
               })}
             </div>
-            <DragOverlay dropAnimation={null}>
+            <DragOverlay
+              className="pointer-events-none"
+              dropAnimation={prefersReducedMotion || dropPreview ? null : dropAnimation}
+              zIndex={60}
+            >
               {activeDragJob ? <JobCardSurface isOverlay job={activeDragJob} now={now} /> : null}
             </DragOverlay>
           </DndContext>

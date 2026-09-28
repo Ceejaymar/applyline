@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import type { CSSProperties } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -20,17 +20,19 @@ import { useApplylineUiStore } from "@/store/applyline-ui-store";
 
 type JobCardProps = {
   isDragSourceHidden?: boolean;
+  isDragActive?: boolean;
   job: BoardJob;
   now: Date;
+  prefersReducedMotion?: boolean;
 };
 
 type JobCardSurfaceProps = {
-  isDragging?: boolean;
   isOverlay?: boolean;
   job: BoardJob;
   now?: Date;
   onDelete?: () => Promise<void>;
   onOpen?: () => void;
+  suppressHover?: boolean;
 };
 
 const neutralAccentColor = "hsl(var(--muted-foreground) / 0.25)";
@@ -62,12 +64,12 @@ function CompanyLogoMark({ job }: { job: BoardJob }) {
 }
 
 export function JobCardSurface({
-  isDragging,
   isOverlay,
   job,
   now = new Date(),
   onDelete,
   onOpen,
+  suppressHover,
 }: JobCardSurfaceProps) {
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const shownTags = job.tags.slice(0, 2);
@@ -82,11 +84,13 @@ export function JobCardSurface({
     <article
       aria-label={onOpen ? `${job.title} at ${job.companyName}` : undefined}
       className={cn(
-        "group relative w-full max-w-full overflow-hidden rounded-md border bg-card text-card-foreground shadow-[0_10px_28px_-24px_hsl(var(--foreground)/0.6)] transition duration-200",
-        "hover:-translate-y-0.5 hover:border-primary/28 hover:shadow-soft",
+        "group relative w-full max-w-full overflow-hidden rounded-md border bg-card text-card-foreground shadow-[0_10px_28px_-24px_hsl(var(--foreground)/0.6)] transition duration-150 motion-reduce:transition-none",
+        !suppressHover &&
+          !isOverlay &&
+          "motion-safe:hover:-translate-y-0.5 hover:border-primary/28 hover:shadow-soft",
         onOpen && "cursor-grab focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        isDragging && "opacity-45",
-        isOverlay && "rotate-1 shadow-2xl",
+        isOverlay &&
+          "pointer-events-none cursor-grabbing border-primary/25 shadow-[0_18px_36px_-22px_hsl(var(--foreground)/0.5)] transition-none dark:shadow-none",
       )}
       onClick={() => {
         if (isConfirmingDelete) {
@@ -114,7 +118,10 @@ export function JobCardSurface({
       {/* Action icons — top-right corner, hover-reveal with frosted backdrop */}
       {hasActions && !isConfirmingDelete ? (
         <div
-          className="absolute right-2 top-2 flex items-center gap-px rounded-md border border-border/40 bg-card/80 px-0.5 py-0.5 opacity-0 backdrop-blur-sm pointer-events-none transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto"
+          className={cn(
+            "pointer-events-none absolute right-2 top-2 flex items-center gap-px rounded-md border border-border/40 bg-card/80 px-0.5 py-0.5 opacity-0 backdrop-blur-sm transition-opacity duration-150 motion-reduce:transition-none",
+            !suppressHover && !isOverlay && "group-hover:pointer-events-auto group-hover:opacity-100",
+          )}
           onClick={(e) => e.stopPropagation()}
           onKeyDown={(e) => e.stopPropagation()}
         >
@@ -225,24 +232,37 @@ export function JobCardSurface({
   );
 }
 
-export function JobCard({ isDragSourceHidden, job, now }: JobCardProps) {
+export const JobCard = memo(function JobCard({
+  isDragSourceHidden,
+  isDragActive,
+  job,
+  now,
+  prefersReducedMotion,
+}: JobCardProps) {
   const openJob = useApplylineUiStore((state) => state.openJob);
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+  const { attributes, listeners, setNodeRef, transform, transition, isSorting } =
     useSortable({
       id: job.id,
       data: { columnId: job.columnId, type: "job" },
+      transition: prefersReducedMotion
+        ? null
+        : {
+            duration: 180,
+            easing: "cubic-bezier(0.4, 0, 0.2, 1)",
+          },
     });
 
   const style: CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
+    willChange: isSorting ? "transform" : undefined,
   };
 
   return (
     <div
       aria-hidden={isDragSourceHidden ? true : undefined}
       className={cn(
-        "w-full max-w-full min-w-0 shrink-0 overflow-hidden transition-opacity duration-150 motion-reduce:transition-none",
+        "w-full max-w-full min-w-0 shrink-0 overflow-hidden",
         isDragSourceHidden && "pointer-events-none opacity-0",
       )}
       ref={setNodeRef}
@@ -251,12 +271,12 @@ export function JobCard({ isDragSourceHidden, job, now }: JobCardProps) {
       {...listeners}
     >
       <JobCardSurface
-        isDragging={isDragging}
         job={job}
         now={now}
         onDelete={async () => { await deleteJobPermanently(job.id); }}
         onOpen={() => openJob(job.id)}
+        suppressHover={isDragActive}
       />
     </div>
   );
-}
+});
