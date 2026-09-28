@@ -477,26 +477,22 @@ export function BoardPage() {
         <div
           className={
             toast.type === "error"
-              ? "flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive shadow-sm"
-              : "flex items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-primary shadow-sm"
+              ? "fixed bottom-4 right-4 z-[70] flex w-[calc(100vw-2rem)] max-w-sm items-start justify-between gap-3 rounded-lg border border-destructive/30 bg-card px-4 py-3 text-sm text-card-foreground shadow-soft sm:bottom-6 sm:right-6"
+              : "fixed bottom-4 right-4 z-[70] flex w-[calc(100vw-2rem)] max-w-sm items-start justify-between gap-3 rounded-lg border border-success/30 bg-card px-4 py-3 text-sm text-card-foreground shadow-soft sm:bottom-6 sm:right-6"
           }
           role={toast.type === "error" ? "alert" : "status"}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-start gap-2">
             {toast.type === "error" ? (
-              <AlertTriangle className="size-4" />
+              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
             ) : (
-              <CheckCircle2 className="size-4" />
+              <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" />
             )}
-            <span className="font-medium">{toast.message}</span>
+            <span className="min-w-0 font-medium leading-5">{toast.message}</span>
           </div>
           <Button
             aria-label="Dismiss notification"
-            className={
-              toast.type === "error"
-                ? "size-7 text-destructive hover:bg-destructive/10"
-                : "size-7 text-primary hover:bg-primary/10"
-            }
+            className="-mr-1 -mt-1 size-7 shrink-0 text-muted-foreground hover:bg-secondary hover:text-foreground"
             onClick={() => setToast(null)}
             size="icon"
             variant="ghost"
@@ -594,7 +590,18 @@ export function BoardPage() {
         jobs={jobs}
         sources={sources}
       />
-      <AddJobDialog columns={columns} companies={companies} jobs={jobs} sources={sources} />
+      <AddJobDialog
+        columns={columns}
+        companies={companies}
+        jobs={jobs}
+        onCreated={() =>
+          setToast({
+            type: "success",
+            message: "Job added to your board.",
+          })
+        }
+        sources={sources}
+      />
       <ColumnCreateDialog open={isCreatingColumn} onOpenChange={setIsCreatingColumn} />
       <ArchiveMoveDialog
         job={jobs.find((job) => job.id === pendingArchiveMove?.jobId) ?? null}

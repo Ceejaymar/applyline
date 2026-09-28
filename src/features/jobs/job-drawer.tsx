@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Archive,
@@ -175,6 +175,25 @@ function PlainTextSection({ title, value }: { title: string; value?: string }) {
       </div>
     </section>
   );
+}
+
+function getJobFormValues(job: BoardJob): JobFormValues {
+  return toJobFormValues({
+    title: job.title,
+    companyId: job.companyId,
+    companyName: job.companyName,
+    columnId: job.columnId,
+    sourceId: job.sourceId ?? "",
+    link: job.link ?? "",
+    location: job.location ?? "",
+    roleType: job.roleType ?? "",
+    compensation: job.compensation ?? "",
+    description: job.description ?? "",
+    notes: job.notes ?? "",
+    resumeVersion: job.resumeVersion ?? "",
+    appliedAt: job.appliedAt,
+    tags: job.tags,
+  });
 }
 
 function ContactLinkForm({
@@ -516,43 +535,56 @@ export function JobDrawer({
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [duplicateJob, setDuplicateJob] = useState<BoardJob | null>(null);
   const [pendingValues, setPendingValues] = useState<JobFormValues | null>(null);
+  const initializedJobIdRef = useRef<string | null>(null);
   const form = useForm<JobFormValues>({
     resolver: zodResolver(jobFormSchema),
   });
+  const isDirty = form.formState.isDirty;
+  const isSubmitting = form.formState.isSubmitting;
   const source = sources.find((nextSource) => nextSource.id === job?.sourceId);
   const jobActivities = activities.filter((activity) => activity.jobId === job?.id);
 
   useEffect(() => {
-    if (!job) {
-      setIsEditing(false);
-      setIsConfirmingDelete(false);
-      setDuplicateJob(null);
-      setPendingValues(null);
+    const nextJobId = job?.id ?? null;
+
+    if (initializedJobIdRef.current === nextJobId) {
       return;
     }
-    setIsConfirmingDelete(false);
 
-    form.reset(
-      toJobFormValues({
-        title: job.title,
-        companyId: job.companyId,
-        companyName: job.companyName,
-        columnId: job.columnId,
-        sourceId: job.sourceId ?? "",
-        link: job.link ?? "",
-        location: job.location ?? "",
-        roleType: job.roleType ?? "",
-        compensation: job.compensation ?? "",
-        description: job.description ?? "",
-        notes: job.notes ?? "",
-        resumeVersion: job.resumeVersion ?? "",
-        appliedAt: job.appliedAt,
-        tags: job.tags,
-      }),
-    );
+    initializedJobIdRef.current = nextJobId;
+    setIsConfirmingDelete(false);
     setDuplicateJob(null);
     setPendingValues(null);
+
+    if (!job) {
+      setIsEditing(false);
+      return;
+    }
+
+    form.reset(getJobFormValues(job));
+    setIsEditing(true);
   }, [form, job]);
+
+  function restorePersistedValues() {
+    if (!job) {
+      return;
+    }
+
+    form.reset(getJobFormValues(job));
+    setDuplicateJob(null);
+    setPendingValues(null);
+    setIsConfirmingDelete(false);
+  }
+
+  function startEditing() {
+    restorePersistedValues();
+    setIsEditing(true);
+  }
+
+  function cancelEditing() {
+    restorePersistedValues();
+    setIsEditing(false);
+  }
 
   async function saveJob(values: JobFormValues) {
     if (!job) {
@@ -560,9 +592,9 @@ export function JobDrawer({
     }
 
     await updateJob(job.id, toJobInput(values));
+    form.reset(values);
     setDuplicateJob(null);
     setPendingValues(null);
-    setIsEditing(false);
   }
 
   async function onSubmit(values: JobFormValues) {
@@ -626,7 +658,7 @@ export function JobDrawer({
       >
         <DialogContent className="w-[620px]">
         <DialogHeader>
-          <div className="flex items-start justify-between gap-4 pr-7">
+          <div className="grid gap-3 pr-7 sm:flex sm:items-start sm:justify-between">
             <div className="min-w-0">
               <DialogTitle className="truncate">{job?.title ?? "Application details"}</DialogTitle>
               <DialogDescription className="mt-1 flex flex-wrap items-center gap-2">
@@ -640,7 +672,19 @@ export function JobDrawer({
               </DialogDescription>
             </div>
             {job ? (
-              <div className="flex shrink-0 items-center gap-1">
+              <div className="flex shrink-0 items-center justify-end gap-1">
+                {isEditing ? (
+                  <Button
+                    disabled={!isDirty || isSubmitting}
+                    form="job-edit-form"
+                    size="sm"
+                    type="submit"
+                    variant={isDirty ? "default" : "outline"}
+                  >
+                    <Save />
+                    Save changes
+                  </Button>
+                ) : null}
                 {job.link ? (
                   <Button
                     aria-label="Open posting"
@@ -654,7 +698,7 @@ export function JobDrawer({
                 ) : null}
                 <Button
                   aria-label={isEditing ? "Cancel edit" : "Edit job"}
-                  onClick={() => setIsEditing((next) => !next)}
+                  onClick={isEditing ? cancelEditing : startEditing}
                   size="icon"
                   title={isEditing ? "Cancel edit" : "Edit job"}
                   variant="outline"
@@ -668,7 +712,11 @@ export function JobDrawer({
 
         {job ? (
           isEditing ? (
-            <form className="grid gap-5" onSubmit={form.handleSubmit(onSubmit)}>
+            <form
+              className="grid gap-5"
+              id="job-edit-form"
+              onSubmit={form.handleSubmit(onSubmit)}
+            >
               {duplicateJob ? (
                 <DuplicateJobWarning
                   duplicateJob={duplicateJob}
@@ -687,7 +735,7 @@ export function JobDrawer({
                 form={form}
                 sources={sources}
               />
-              <div className="flex items-center justify-between gap-3 border-t pt-4">
+              <div className="grid gap-3 border-t pt-4 sm:flex sm:items-center sm:justify-between">
                 {isConfirmingDelete ? (
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-muted-foreground">Delete permanently?</span>
@@ -704,12 +752,20 @@ export function JobDrawer({
                     Delete
                   </Button>
                 )}
-                <div className="flex gap-2">
+                <div className="flex flex-wrap justify-end gap-2">
                   <Button onClick={onArchive} type="button" variant="outline">
                     <Archive />
                     Archive
                   </Button>
-                  <Button disabled={form.formState.isSubmitting} type="submit">
+                  <Button onClick={cancelEditing} type="button" variant="ghost">
+                    <X />
+                    Cancel
+                  </Button>
+                  <Button
+                    disabled={!isDirty || isSubmitting}
+                    type="submit"
+                    variant={isDirty ? "default" : "outline"}
+                  >
                     <Save />
                     Save changes
                   </Button>

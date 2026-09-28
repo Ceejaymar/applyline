@@ -135,6 +135,7 @@ function SourceField({
 export function JobFormFields({ collapsible, columns, companies, form, sources }: JobFormFieldsProps) {
   const id = useId();
   const errors = form.formState.errors;
+  const isLinkDirty = Boolean(form.formState.dirtyFields.link);
   const link = form.watch("link");
   const selectedSourceId = form.watch("sourceId");
   const shouldEncourageContact = isReferralSource(selectedSourceId, sources);
@@ -142,7 +143,7 @@ export function JobFormFields({ collapsible, columns, companies, form, sources }
   const showDetailFields = !collapsible || showDetails;
 
   useEffect(() => {
-    if (selectedSourceId) {
+    if (!isLinkDirty || selectedSourceId) {
       return;
     }
 
@@ -154,7 +155,7 @@ export function JobFormFields({ collapsible, columns, companies, form, sources }
         shouldValidate: true,
       });
     }
-  }, [form, link, selectedSourceId, sources]);
+  }, [form, isLinkDirty, link, selectedSourceId, sources]);
 
   return (
     <div className="grid gap-5">

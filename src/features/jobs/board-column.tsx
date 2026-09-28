@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { Plus } from "lucide-react";
@@ -28,14 +29,11 @@ type BoardColumnProps = {
   sort: JobSortMode;
 };
 
-function DropPreviewIndicator({ position }: { position: "before" | "end" }) {
+function DropPreviewCard() {
   return (
     <div
       aria-hidden="true"
-      className={cn(
-        "pointer-events-none absolute inset-x-1 z-10 h-0.5 rounded-sm bg-primary/70",
-        position === "before" ? "-top-[5px]" : "-bottom-[5px]",
-      )}
+      className="pointer-events-none h-[5.75rem] w-full shrink-0 rounded-md border border-dashed border-primary/45 bg-primary/[0.055] transition-colors duration-150 motion-reduce:transition-none"
     />
   );
 }
@@ -102,12 +100,10 @@ export function BoardColumn({
       </header>
       <SortableContext items={jobs.map((job) => job.id)} strategy={verticalListSortingStrategy}>
         <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-2.5 [scrollbar-width:thin]">
-          <div className="relative flex min-w-0 flex-col gap-2">
+          <div className="flex min-w-0 flex-col gap-2">
             {jobs.map((job, index) => (
-              <div className="relative" key={job.id}>
-                {normalizedDropPreviewIndex === index ? (
-                  <DropPreviewIndicator position="before" />
-                ) : null}
+              <Fragment key={job.id}>
+                {normalizedDropPreviewIndex === index ? <DropPreviewCard /> : null}
                 <JobCard
                   isDragSourceHidden={job.id === activeDragJobId}
                   isDragActive={Boolean(activeDragJobId)}
@@ -115,18 +111,13 @@ export function BoardColumn({
                   now={now}
                   prefersReducedMotion={prefersReducedMotion}
                 />
-              </div>
+              </Fragment>
             ))}
-            {normalizedDropPreviewIndex === jobs.length && jobs.length > 0 ? (
-              <DropPreviewIndicator position="end" />
-            ) : null}
-            {jobs.length === 0 ? (
+            {normalizedDropPreviewIndex === jobs.length ? <DropPreviewCard /> : null}
+            {jobs.length === 0 && normalizedDropPreviewIndex === null ? (
               <div
                 aria-label={`${column.name} drop zone, empty`}
-                className={cn(
-                  "grid h-28 place-items-center rounded-md border border-dashed bg-background/55 px-5 text-center text-xs leading-5 text-muted-foreground transition-colors motion-reduce:transition-none",
-                  normalizedDropPreviewIndex === 0 && "border-primary/45 bg-primary/[0.055]",
-                )}
+                className="grid h-28 place-items-center rounded-md border border-dashed bg-background/55 px-5 text-center text-xs leading-5 text-muted-foreground transition-colors motion-reduce:transition-none"
                 role="region"
               >
                 No jobs yet.
